@@ -1,0 +1,69 @@
+name: low-code-plat
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lowcode}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lowcode123}
+      POSTGRES_DB: ${POSTGRES_DB:-lowcode}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lowcode} -d ${POSTGRES_DB:-lowcode}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  server:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lowcode}:${POSTGRES_PASSWORD:-lowcode123}@postgres:5432/${POSTGRES_DB:-lowcode}?schema=public
+      REDIS_URL: redis://redis:6379
+      PORT: 3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        # 容器内经 nginx 同源访问 API,留空使用相对路径 /api
+        NEXT_PUBLIC_API_URL: ""
+    environment:
+      API_INTERNAL_URL: http://server:3001
+      SITE_API_URL: http://localhost
+      PORT: 3000
+    depends_on:
+      - server
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+      - server
+
+volumes:
+  pgdata:

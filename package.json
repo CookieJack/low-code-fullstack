@@ -1,0 +1,17 @@
+{
+  "name": "low-code-plat",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter ./apps/* dev",
+    "dev:web": "pnpm --filter web dev",
+    "dev:server": "pnpm --filter server dev",
+    "build": "pnpm -r build",
+    "db:up": "docker compose up -d postgres redis",
+    "db:migrate": "pnpm --filter server migrate",
+    "db:seed": "pnpm --filter server seed"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
