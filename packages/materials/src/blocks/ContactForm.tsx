@@ -55,12 +55,12 @@ function ContactForm({ props, style, mode, context }: MaterialComponentProps) {
   }
 
   const inputCls =
-    "w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20";
+    "w-full rounded-xl bg-slate-100 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:bg-white focus:ring-4 focus:ring-indigo-500/15";
 
   return (
     <section className="@container w-full" style={sectionStyle(style, { paddingTop: 96, paddingBottom: 96, background: "#f8fafc" })}>
       <div className="mx-auto max-w-xl px-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-2xl bg-white p-8 shadow-xl shadow-slate-900/5">
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h2>
           {subtitle ? <p className="mt-2 text-slate-500">{subtitle}</p> : null}
 
@@ -114,7 +114,7 @@ function ContactForm({ props, style, mode, context }: MaterialComponentProps) {
               <button
                 type="submit"
                 disabled={state === "sending"}
-                className="w-full rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+                className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-600/30 disabled:opacity-60"
               >
                 {state === "sending" ? "提交中…" : submitText}
               </button>

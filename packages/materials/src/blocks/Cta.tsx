@@ -19,8 +19,13 @@ function Cta({ props, style }: MaterialComponentProps) {
   } = props as Partial<Props>;
 
   return (
-    <section className="@container w-full" style={sectionStyle(style, { paddingTop: 80, paddingBottom: 80, background: bgColor })}>
-      <div className="mx-auto max-w-4xl px-6 text-center text-white">
+    <section
+      className="@container relative w-full overflow-hidden"
+      style={sectionStyle(style, { paddingTop: 80, paddingBottom: 80, background: bgColor })}
+    >
+      <div className="pointer-events-none absolute -left-20 -top-24 h-72 w-72 rounded-full bg-white/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-28 -right-16 h-80 w-80 rounded-full bg-black/15 blur-3xl" />
+      <div className="relative mx-auto max-w-4xl px-6 text-center text-white">
         <h2 className="text-3xl font-bold tracking-tight @min-[768px]:text-4xl">{title}</h2>
         {subtitle ? (
           <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed" style={{ opacity: 0.85 }}>
@@ -30,7 +35,7 @@ function Cta({ props, style }: MaterialComponentProps) {
         {buttonText ? (
           <a
             href={buttonHref || "#"}
-            className="mt-8 inline-flex items-center rounded-lg bg-white px-8 py-3 text-base font-semibold text-slate-900 shadow-lg transition hover:bg-slate-100"
+            className="mt-8 inline-flex items-center rounded-lg bg-white px-8 py-3 text-base font-semibold text-slate-900 shadow-lg transition duration-300 hover:-translate-y-0.5 hover:bg-slate-100 hover:shadow-xl"
           >
             {buttonText}
           </a>

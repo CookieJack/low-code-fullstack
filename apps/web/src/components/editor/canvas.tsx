@@ -56,24 +56,24 @@ function SortableNode({
         className={cn(
           "pointer-events-none absolute inset-0 z-[5] transition",
           selected
-            ? "z-[6] ring-2 ring-inset ring-indigo-500"
+            ? "z-[6] ring-2 ring-inset ring-primary"
             : hover
-              ? "ring-2 ring-inset ring-indigo-300"
+              ? "ring-2 ring-inset ring-primary/40"
               : "",
         )}
       />
       {(selected || hover) && !previewMode ? (
         <div
-          className="absolute right-2 top-2 z-10 flex items-center gap-0.5 rounded-lg border bg-white/95 px-1.5 py-1 shadow-md backdrop-blur"
+          className="absolute right-2 top-2 z-10 flex items-center gap-0.5 rounded-lg bg-popover/95 px-1.5 py-1 shadow-lg backdrop-blur"
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="px-1 text-xs font-medium text-slate-500">
+          <span className="px-1 text-xs font-medium text-muted-foreground">
             {def?.icon} {def?.title}
           </span>
-          <span className="mx-0.5 h-4 w-px bg-slate-200" />
+          <span className="mx-0.5 h-4 w-px bg-border" />
           <button
             title="拖拽排序"
-            className="cursor-grab rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
+            className="cursor-grab rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground active:cursor-grabbing"
             {...attributes}
             {...listeners}
           >
@@ -82,7 +82,7 @@ function SortableNode({
           <button
             title="上移"
             disabled={index === 0}
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-30"
             onClick={() => moveNode(index, index - 1)}
           >
             <ChevronUp className="h-3.5 w-3.5" />
@@ -90,21 +90,21 @@ function SortableNode({
           <button
             title="下移"
             disabled={index === total - 1}
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-30"
             onClick={() => moveNode(index, index + 1)}
           >
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
           <button
             title="复制"
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => duplicateNode(node.id)}
           >
             <Copy className="h-3.5 w-3.5" />
           </button>
           <button
             title="删除"
-            className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
+            className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
             onClick={() => removeNode(node.id)}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -122,13 +122,17 @@ function EmptyDropZone() {
     <div ref={setNodeRef} className="flex h-[70vh] items-center justify-center p-8">
       <div
         className={cn(
-          "flex w-full max-w-md flex-col items-center gap-3 rounded-2xl border-2 border-dashed p-12 text-center transition",
-          isOver ? "border-indigo-400 bg-indigo-50/60" : "border-slate-200",
+          "flex w-full max-w-md flex-col items-center gap-3 rounded-2xl border-2 border-dashed bg-card/60 p-12 text-center transition",
+          isOver
+            ? "border-primary shadow-lg shadow-indigo-500/10"
+            : "border-black/15 dark:border-white/20",
         )}
       >
-        <Inbox className="h-8 w-8 text-slate-300" />
-        <p className="text-sm font-medium text-slate-500">把左侧组件拖到这里</p>
-        <p className="text-xs text-slate-400">或点击左侧组件直接添加</p>
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent">
+          <Inbox className="h-6 w-6 text-accent-foreground" />
+        </div>
+        <p className="text-sm font-medium text-foreground">把左侧组件拖到这里</p>
+        <p className="text-xs text-muted-foreground">或点击左侧组件直接添加</p>
       </div>
     </div>
   );
@@ -145,14 +149,14 @@ export function Canvas() {
 
   return (
     <div
-      className="lc-canvas flex-1 overflow-auto bg-slate-100 p-4 md:p-8"
+      className="lc-canvas flex-1 overflow-auto bg-dot-grid bg-background p-4 md:p-8"
       onClick={() => useEditorStore.getState().select(null)}
     >
       <div
         className="mx-auto transition-[width] duration-300"
         style={{ width: DEVICE_WIDTH[device], maxWidth: "100%" }}
       >
-        <div className="min-h-[70vh] overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-200">
+        <div className="min-h-[70vh] overflow-hidden rounded-xl bg-white shadow-2xl">
           {nodes.length === 0 && !previewMode ? (
             <EmptyDropZone />
           ) : (
@@ -182,8 +186,8 @@ export function Canvas() {
               className={cn(
                 "flex h-14 items-center justify-center text-xs transition",
                 endOver
-                  ? "bg-indigo-100 text-indigo-600"
-                  : "text-slate-300 hover:text-slate-400",
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground/60 hover:text-muted-foreground",
               )}
             >
               拖到这里添加到末尾

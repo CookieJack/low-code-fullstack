@@ -1,0 +1,11 @@
+node_modules
+.next
+dist
+.turbo
+*.tsbuildinfo
+.git
+.env
+apps/server/.env
+docker/ssl
+README.md
+apps/web/.next

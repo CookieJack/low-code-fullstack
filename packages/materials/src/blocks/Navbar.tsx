@@ -24,8 +24,8 @@ function Navbar({ props, style }: MaterialComponentProps) {
 
   return (
     <header
-      className="@container w-full border-b border-black/5"
-      style={sectionStyle(style, { background: "#ffffff" })}
+      className="@container sticky top-0 z-40 w-full border-b border-black/5 backdrop-blur-md"
+      style={sectionStyle(style, { background: "rgba(255,255,255,0.92)" })}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6">
         <a href="#" className="flex items-center gap-2.5">
@@ -41,7 +41,7 @@ function Navbar({ props, style }: MaterialComponentProps) {
             <a
               key={i}
               href={l.href || "#"}
-              className="text-sm font-medium text-slate-600 transition hover:text-slate-900"
+              className="text-sm font-medium text-slate-600 transition hover:text-indigo-600"
             >
               {l.label}
             </a>
@@ -52,7 +52,7 @@ function Navbar({ props, style }: MaterialComponentProps) {
           {ctaText ? (
             <a
               href={ctaHref || "#"}
-              className="hidden rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 @min-[640px]:inline-block"
+              className="hidden rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/25 transition hover:bg-indigo-500 @min-[640px]:inline-block"
             >
               {ctaText}
             </a>

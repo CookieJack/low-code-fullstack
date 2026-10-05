@@ -12,6 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { getMaterial } from "@lc/materials";
 import type { NodeSchema } from "@lc/schema";
+import { TriangleAlert } from "lucide-react";
 import { getPage } from "@/lib/api";
 import { saveNow } from "@/lib/editor-save";
 import { useEditorStore } from "@/lib/editor-store";
@@ -114,9 +115,15 @@ export function EditorClient({ pageId }: { pageId: string }) {
 
   if (loadError) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3">
-        <p className="text-destructive">{loadError}</p>
-        <a href="/" className="text-sm text-indigo-600 hover:underline">
+      <div className="flex h-screen flex-col items-center justify-center gap-4">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10">
+          <TriangleAlert className="h-7 w-7 text-red-500" />
+        </div>
+        <div className="text-center">
+          <p className="font-semibold">页面加载失败</p>
+          <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
+        </div>
+        <a href="/" className="text-sm font-medium text-primary hover:underline">
           返回页面列表
         </a>
       </div>
@@ -125,8 +132,11 @@ export function EditorClient({ pageId }: { pageId: string }) {
 
   if (!ready) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+      <div className="flex h-screen flex-col items-center justify-center gap-4">
+        <div className="relative h-10 w-10">
+          <div className="absolute inset-0 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
+        </div>
+        <p className="text-sm text-muted-foreground">正在加载编辑器…</p>
       </div>
     );
   }
@@ -146,7 +156,7 @@ export function EditorClient({ pageId }: { pageId: string }) {
           {!previewMode && <PropertyPanel />}
         </div>
         <DragOverlay>{activeLabel ? (
-          <div className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-lg">
+          <div className="rounded-md bg-brand-gradient px-3 py-1.5 text-xs font-medium text-white shadow-lg">
             {activeLabel}
           </div>
         ) : null}</DragOverlay>

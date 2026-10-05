@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  Globe,
   Monitor,
   Rocket,
   Redo2,
@@ -35,6 +36,7 @@ import {
 import { publishPage } from "@/lib/api";
 import { saveNow } from "@/lib/editor-save";
 import { useEditorStore, type Device } from "@/lib/editor-store";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 function slugify(name: string): string {
   const base = name
@@ -180,7 +182,10 @@ export function Topbar() {
         : "";
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-card px-4">
+    <header className="relative z-10 flex h-14 shrink-0 items-center gap-3 bg-card px-4 shadow-sm">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-gradient shadow-brand">
+        <Globe className="h-4 w-4 text-white" />
+      </div>
       <Button asChild size="icon" variant="ghost" title="返回页面列表">
         <Link href="/">
           <ArrowLeft />
@@ -207,14 +212,16 @@ export function Topbar() {
 
       <Separator orientation="vertical" className="h-6" />
 
-      <div className="flex items-center rounded-lg border p-0.5">
+      <div className="flex items-center rounded-lg bg-muted p-0.5">
         {DEVICES.map(({ key, icon: Icon, label }) => (
           <button
             key={key}
             title={label}
             onClick={() => setDevice(key)}
             className={`rounded-md p-1.5 transition ${
-              device === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+              device === key
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <Icon className="h-4 w-4" />
@@ -233,13 +240,18 @@ export function Topbar() {
       </Button>
 
       <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle />
         <Button variant="outline" size="sm" asChild disabled={!pageId}>
           <a href={`/api/export/${pageId}`} title="导出当前草稿为静态 HTML">
             <Download />
             导出 HTML
           </a>
         </Button>
-        <Button size="sm" onClick={() => setPublishOpen(true)}>
+        <Button
+          size="sm"
+          className="bg-brand-gradient text-white shadow-brand hover:opacity-90"
+          onClick={() => setPublishOpen(true)}
+        >
           <Rocket />
           发布
         </Button>

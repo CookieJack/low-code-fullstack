@@ -14,6 +14,15 @@ const COLS: Record<string, string> = {
   "4": "@min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-4",
 };
 
+/* 按序循环的渐变图标底色 */
+const CHIP_GRADIENTS = [
+  "from-indigo-500 to-violet-500",
+  "from-sky-500 to-blue-600",
+  "from-fuchsia-500 to-pink-500",
+  "from-emerald-500 to-teal-500",
+  "from-amber-500 to-orange-500",
+];
+
 function Features({ props, style }: MaterialComponentProps) {
   const {
     title = "为什么选择我们",
@@ -37,9 +46,11 @@ function Features({ props, style }: MaterialComponentProps) {
           {items.map((item, i) => (
             <div
               key={i}
-              className="rounded-2xl border border-slate-200 bg-white p-7 transition hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-200"
+              className="rounded-2xl bg-white p-7 shadow-md shadow-slate-900/5 transition duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-2xl">
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br text-2xl shadow-sm ${CHIP_GRADIENTS[i % CHIP_GRADIENTS.length]}`}
+              >
                 {item.icon || "✨"}
               </div>
               <h3 className="mt-5 text-lg font-semibold text-slate-900">{item.title}</h3>

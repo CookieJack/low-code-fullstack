@@ -17,6 +17,7 @@ import {
   Textarea,
 } from "@lc/ui";
 import { useEditorStore } from "@/lib/editor-store";
+import { ColorField } from "./color-field";
 
 type ArrayField = Extract<PropField, { type: "array" }>;
 
@@ -56,22 +57,11 @@ function FieldControl({
       );
     case "color":
       return (
-        <div className="space-y-1.5">
-          <Label>{field.label}</Label>
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#ffffff"}
-              onChange={(e) => onChange(e.target.value)}
-              className="h-9 w-12 cursor-pointer rounded-md border border-input bg-transparent p-1"
-            />
-            <Input
-              value={typeof value === "string" ? value : ""}
-              placeholder="#rrggbb"
-              onChange={(e) => onChange(e.target.value)}
-            />
-          </div>
-        </div>
+        <ColorField
+          label={field.label}
+          value={typeof value === "string" ? value : undefined}
+          onChange={onChange}
+        />
       );
     case "number":
       return (
@@ -151,16 +141,16 @@ function ArrayEditor({
       </Label>
       <div className="space-y-2">
         {items.map((item, i) => (
-          <div key={i} className="space-y-2.5 rounded-lg border bg-background p-2.5">
+          <div key={i} className="space-y-2.5 rounded-lg bg-card p-2.5 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="max-w-40 truncate text-xs font-medium text-slate-500">
+              <span className="max-w-40 truncate text-xs font-medium text-muted-foreground">
                 {String(item[field.itemLabelKey] ?? `第 ${i + 1} 项`)}
               </span>
               <div className="flex items-center gap-0.5">
                 <button
                   title="上移"
                   disabled={i === 0}
-                  className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+                  className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-30"
                   onClick={() => move(i, i - 1)}
                 >
                   <ChevronUp className="h-3.5 w-3.5" />
@@ -168,14 +158,14 @@ function ArrayEditor({
                 <button
                   title="下移"
                   disabled={i === items.length - 1}
-                  className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+                  className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-30"
                   onClick={() => move(i, i + 1)}
                 >
                   <ChevronDown className="h-3.5 w-3.5" />
                 </button>
                 <button
                   title="移除"
-                  className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                  className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
                   onClick={() => onChange(items.filter((_, j) => j !== i))}
                 >
                   <X className="h-3.5 w-3.5" />
@@ -194,7 +184,7 @@ function ArrayEditor({
         ))}
       </div>
       <button
-        className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed py-2 text-xs text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600"
+        className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed py-2 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-primary"
         onClick={() => onChange([...items, structuredClone(field.defaultItem)])}
       >
         <Plus className="h-3.5 w-3.5" />
@@ -222,7 +212,7 @@ function StyleSection({ nodeId }: { nodeId: string }) {
         {Object.keys(style).length > 0 ? (
           <button
             title="重置样式"
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() =>
               updateStyle(nodeId, { background: undefined, paddingTop: undefined, paddingBottom: undefined })
             }
@@ -232,22 +222,13 @@ function StyleSection({ nodeId }: { nodeId: string }) {
         ) : null}
       </div>
 
-      <div className="space-y-1.5">
-        <Label>背景色</Label>
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            value={typeof style.background === "string" && /^#[0-9a-fA-F]{6}$/.test(style.background) ? style.background : "#ffffff"}
-            onChange={(e) => updateStyle(nodeId, { background: e.target.value })}
-            className="h-9 w-12 cursor-pointer rounded-md border border-input bg-transparent p-1"
-          />
-          <Input
-            value={typeof style.background === "string" ? style.background : ""}
-            placeholder="默认"
-            onChange={(e) => updateStyle(nodeId, { background: e.target.value || undefined })}
-          />
-        </div>
-      </div>
+      <ColorField
+        label="背景色"
+        value={typeof style.background === "string" ? style.background : undefined}
+        placeholder="默认"
+        fallback="#ffffff"
+        onChange={(v) => updateStyle(nodeId, { background: v })}
+      />
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
@@ -288,10 +269,10 @@ export function PropertyPanel() {
   const def = node ? getMaterial(node.type) : undefined;
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col overflow-hidden border-l bg-card">
+    <aside className="flex w-80 shrink-0 flex-col overflow-hidden bg-background">
       {node && def ? (
         <>
-          <div className="flex items-center gap-2 border-b px-4 py-3">
+          <div className="flex items-center gap-2 px-4 py-3">
             <span>{def.icon}</span>
             <span className="text-sm font-semibold">{def.title}</span>
             <span className="ml-auto text-xs text-muted-foreground">属性设置</span>
@@ -311,7 +292,7 @@ export function PropertyPanel() {
         </>
       ) : (
         <>
-          <div className="flex items-center gap-2 border-b px-4 py-3">
+          <div className="flex items-center gap-2 px-4 py-3">
             <span className="text-sm font-semibold">页面设置</span>
           </div>
           <div className="flex-1 space-y-5 overflow-auto p-4">

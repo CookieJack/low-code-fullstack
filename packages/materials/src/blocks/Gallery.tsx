@@ -32,12 +32,15 @@ function Gallery({ props, style }: MaterialComponentProps) {
         ) : null}
         <div className={`mt-12 grid gap-4 ${COLS[columns] ?? COLS["3"]}`}>
           {images.map((img, i) => (
-            <div key={i} className="group overflow-hidden rounded-xl bg-slate-100">
+            <div
+              key={i}
+              className="group overflow-hidden rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 shadow-md shadow-slate-900/5 transition duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-900/10"
+            >
               {img.url ? (
                 <img
                   src={img.url}
                   alt={img.alt || ""}
-                  className="aspect-square w-full object-cover transition duration-300 group-hover:scale-105"
+                  className="aspect-square w-full object-cover transition duration-500 group-hover:scale-105"
                 />
               ) : (
                 <div className="flex aspect-square w-full items-center justify-center text-sm text-slate-400">

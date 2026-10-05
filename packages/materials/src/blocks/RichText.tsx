@@ -11,7 +11,7 @@ function RichText({ props, style }: MaterialComponentProps) {
   return (
     <section className="@container w-full" style={sectionStyle(style, { paddingTop: 96, paddingBottom: 96, background: "#ffffff" })}>
       <div
-        className="prose prose-slate mx-auto max-w-3xl px-6 prose-headings:tracking-tight prose-a:text-indigo-600"
+        className="prose prose-slate mx-auto max-w-3xl px-6 prose-headings:tracking-tight prose-a:font-medium prose-a:text-indigo-600 prose-li:marker:text-indigo-400"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </section>

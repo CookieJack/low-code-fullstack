@@ -2,32 +2,68 @@
 @plugin "@tailwindcss/typography";
 @import "@lc/ui/styles.css";
 
+/* 类名式暗色模式(html.dark) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Tailwind 扫描 workspace 包中的类名 */
 @source "../../../packages/materials/src";
 @source "../../../packages/renderer/src";
 @source "../../../packages/ui/src";
 
-/* ===== shadcn 主题变量(亮色) ===== */
+/* ===== 亮色主题(indigo 品牌) ===== */
 :root {
-  --background: #ffffff;
+  color-scheme: light;
+  --background: #fafafa;
   --foreground: #09090b;
   --card: #ffffff;
   --card-foreground: #09090b;
   --popover: #ffffff;
   --popover-foreground: #09090b;
-  --primary: #18181b;
-  --primary-foreground: #fafafa;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
   --secondary: #f4f4f5;
   --secondary-foreground: #18181b;
   --muted: #f4f4f5;
   --muted-foreground: #71717a;
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
+  --accent: #eef2ff;
+  --accent-foreground: #3730a3;
   --destructive: #ef4444;
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #18181b;
-  --radius: 0.5rem;
+  /* 无边框设计:卡片/输入框/弹层一律用阴影与填充表达层次 */
+  --border: transparent;
+  --input: transparent;
+  --ring: #6366f1;
+  --radius: 0.625rem;
+  /* 品牌渐变与画布点阵 */
+  --brand-from: #6366f1;
+  --brand-to: #8b5cf6;
+  --dot-color: #d4d4d8;
+  /* 卡片阴影:近处贴地 + 远处柔和扩散 */
+  --app-shadow-card: 0 1px 2px rgb(0 0 0 / 0.03), 0 8px 24px -12px rgb(0 0 0 / 0.12);
+}
+
+/* ===== 暗色主题 ===== */
+.dark {
+  color-scheme: dark;
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #121214;
+  --card-foreground: #fafafa;
+  --popover: #1b1b1f;
+  --popover-foreground: #fafafa;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --secondary: #1f1f23;
+  --secondary-foreground: #e4e4e7;
+  --muted: #1a1a1e;
+  --muted-foreground: #a1a1aa;
+  --accent: #1e1b4b;
+  --accent-foreground: #c7d2fe;
+  --destructive: #ef4444;
+  --border: rgba(255, 255, 255, 0.07);
+  --input: rgba(255, 255, 255, 0.07);
+  --ring: #6366f1;
+  --dot-color: #27272a;
+  --app-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 32px -12px rgb(0 0 0 / 0.6);
 }
 
 body {
@@ -43,6 +79,46 @@ body {
     "Hiragino Sans GB",
     "Microsoft YaHei",
     sans-serif;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--ring) 25%, transparent);
+}
+
+/* ===== 品牌工具类 ===== */
+@utility bg-brand-gradient {
+  background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+}
+
+@utility text-brand-gradient {
+  background-image: linear-gradient(120deg, var(--brand-from), var(--brand-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility shadow-brand {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px -4px color-mix(in oklab, var(--brand-from) 35%, transparent);
+}
+
+/* 画布点阵网格(随主题变色) */
+@utility bg-dot-grid {
+  background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* 无边框卡片的层次阴影 */
+@utility shadow-card {
+  box-shadow: var(--app-shadow-card);
+}
+
+/* 取色器色板底纹 */
+@utility bg-checkerboard {
+  background-image:
+    linear-gradient(45deg, #e4e4e7 25%, transparent 25%, transparent 75%, #e4e4e7 75%),
+    linear-gradient(45deg, #e4e4e7 25%, transparent 25%, transparent 75%, #e4e4e7 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 4px 4px;
 }
 
 /* 编辑画布内禁用原生点击导航(预览交互由发布页承担) */

@@ -26,11 +26,11 @@ function MaterialItem({ def }: { def: MaterialDef }) {
         addNode(def.type, idx === -1 ? undefined : idx + 1);
       }}
       className={cn(
-        "flex cursor-grab items-center gap-3 rounded-lg border bg-card p-3 shadow-sm transition hover:border-indigo-300 hover:shadow active:cursor-grabbing",
+        "flex cursor-grab items-center gap-3 rounded-lg bg-card p-3 shadow-card transition hover:-translate-y-px hover:shadow-md active:cursor-grabbing",
         isDragging && "opacity-40",
       )}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-lg">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-lg text-accent-foreground">
         {def.icon}
       </span>
       <div className="min-w-0">
@@ -59,8 +59,8 @@ function Outline() {
             className={cn(
               "group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition",
               selectedId === node.id
-                ? "bg-indigo-50 text-indigo-700"
-                : "text-slate-600 hover:bg-slate-100",
+                ? "bg-accent font-medium text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
             )}
           >
             <span className="text-base">{def?.icon ?? <TriangleAlert className="h-4 w-4 text-red-400" />}</span>
@@ -69,7 +69,7 @@ function Outline() {
               <button
                 title="上移"
                 disabled={i === 0}
-                className="rounded p-0.5 hover:bg-slate-200 disabled:opacity-30"
+                className="rounded p-0.5 hover:bg-accent disabled:opacity-30"
                 onClick={(e) => {
                   e.stopPropagation();
                   moveNode(i, i - 1);
@@ -80,7 +80,7 @@ function Outline() {
               <button
                 title="下移"
                 disabled={i === nodes.length - 1}
-                className="rounded p-0.5 hover:bg-slate-200 disabled:opacity-30"
+                className="rounded p-0.5 hover:bg-accent disabled:opacity-30"
                 onClick={(e) => {
                   e.stopPropagation();
                   moveNode(i, i + 1);
@@ -90,7 +90,7 @@ function Outline() {
               </button>
               <button
                 title="删除"
-                className="rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                className="rounded p-0.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
                 onClick={(e) => {
                   e.stopPropagation();
                   removeNode(node.id);
@@ -113,7 +113,7 @@ export function MaterialPanel() {
   const categories = [...new Set(materials.map((m) => m.category))];
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col overflow-hidden border-r bg-card">
+    <aside className="flex w-64 shrink-0 flex-col overflow-hidden bg-background">
       <div className="flex-1 space-y-5 overflow-auto p-3">
         {categories.map((cat) => (
           <section key={cat}>
@@ -131,7 +131,7 @@ export function MaterialPanel() {
         ))}
       </div>
 
-      <div className="max-h-64 overflow-auto border-t p-3">
+      <div className="max-h-64 overflow-auto border-t border-black/5 p-3 dark:border-white/8">
         <h3 className="mb-2 flex items-center gap-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <Layers className="h-3.5 w-3.5" />
           页面大纲

@@ -10,3 +10,5 @@ export { Dialog, DialogTrigger, DialogClose, DialogContent, DialogHeader, Dialog
 export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "./components/dropdown-menu";
 export { Separator } from "./components/separator";
 export { Badge, badgeVariants } from "./components/badge";
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/card";
+export { Skeleton } from "./components/skeleton";

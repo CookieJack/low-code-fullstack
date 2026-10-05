@@ -21,9 +21,13 @@ function ImageText({ props, style }: MaterialComponentProps) {
   } = props as Partial<Props>;
 
   const img = (
-    <div className="overflow-hidden rounded-2xl bg-slate-100">
+    <div className="group overflow-hidden rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 shadow-lg shadow-slate-900/5">
       {imageUrl ? (
-        <img src={imageUrl} alt={title} className="aspect-[4/3] w-full object-cover" />
+        <img
+          src={imageUrl}
+          alt={title}
+          className="aspect-[4/3] w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+        />
       ) : (
         <div className="flex aspect-[4/3] w-full items-center justify-center text-slate-400">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -43,7 +47,7 @@ function ImageText({ props, style }: MaterialComponentProps) {
       {buttonText ? (
         <a
           href={buttonHref || "#"}
-          className="mt-8 inline-flex items-center rounded-lg bg-slate-900 px-6 py-3 text-base font-semibold text-white transition hover:bg-slate-700"
+          className="mt-8 inline-flex items-center rounded-lg bg-indigo-600 px-6 py-3 text-base font-semibold text-white shadow-md shadow-indigo-600/25 transition duration-300 hover:-translate-y-0.5 hover:bg-indigo-500"
         >
           {buttonText}
         </a>
