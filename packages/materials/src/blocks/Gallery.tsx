@@ -89,7 +89,7 @@ export const galleryDef: MaterialDef = {
       itemLabelKey: "alt",
       defaultItem: { url: "", alt: "新图片" },
       fields: [
-        { type: "url", key: "url", label: "图片地址" },
+        { type: "image", key: "url", label: "图片" },
         { type: "text", key: "alt", label: "替代文字" },
       ],
     },

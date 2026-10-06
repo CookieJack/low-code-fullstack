@@ -133,7 +133,7 @@ export const heroDef: MaterialDef = {
       ],
     },
     { type: "color", key: "bgColor", label: "背景色" },
-    { type: "url", key: "bgImage", label: "背景图地址", placeholder: "https://…(可选)" },
+    { type: "image", key: "bgImage", label: "背景图", placeholder: "https://…(可选)" },
     {
       type: "select",
       key: "height",

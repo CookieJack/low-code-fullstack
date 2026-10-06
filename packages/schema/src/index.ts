@@ -43,6 +43,8 @@ export type PropField =
   | { type: "text"; key: string; label: string; placeholder?: string }
   | { type: "textarea"; key: string; label: string; placeholder?: string; rows?: number }
   | { type: "url"; key: string; label: string; placeholder?: string }
+  /** 图片属性:URL 输入 + 平台内上传(值仍为 URL 字符串,与 url 控件数据兼容) */
+  | { type: "image"; key: string; label: string; placeholder?: string }
   | { type: "color"; key: string; label: string }
   | { type: "number"; key: string; label: string; min?: number; max?: number; step?: number }
   | { type: "boolean"; key: string; label: string }

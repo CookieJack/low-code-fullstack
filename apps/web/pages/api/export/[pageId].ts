@@ -10,6 +10,14 @@ import type { PageSchema } from "@lc/schema";
 /** 静态导出中表单提交指向的公网 API(部署后可访问的平台地址) */
 const SITE_API = process.env.SITE_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
 
+/** 导出的静态文件部署在任意外部域名,页内相对引用的上传图片需补全为平台绝对地址 */
+function absolutizeUploads(html: string): string {
+  if (!SITE_API) return html;
+  return html
+    .replaceAll('src="/api/uploads/', `src="${SITE_API}/api/uploads/`)
+    .replaceAll("url(/api/uploads/", `url(${SITE_API}/api/uploads/`);
+}
+
 /** 收集 Next 构建产物中的编译后 CSS(Tailwind 已含全部物料类名)。
  *  兼容本地(dev/build 直接运行)与 standalone 容器(cwd 下 apps/web 层级)。 */
 function collectCss(): string {
@@ -94,7 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 <style>${collectCss()}</style>
 </head>
 <body>
-${body}
+${absolutizeUploads(body)}
 ${FORM_SCRIPT}
 </body>
 </html>`;

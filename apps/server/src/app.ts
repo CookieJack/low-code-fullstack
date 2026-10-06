@@ -8,6 +8,7 @@ import { formRoutes } from "./routes/forms";
 import { authRoutes } from "./routes/auth";
 import { userRoutes } from "./routes/users";
 import { roleRoutes } from "./routes/roles";
+import { uploadRoutes } from "./routes/uploads";
 import { authMiddleware, type AuthEnv } from "./middleware/auth";
 
 export const app = new Hono<AuthEnv>();
@@ -24,6 +25,7 @@ app.route("/api/forms", formRoutes);
 app.route("/api/auth", authRoutes);
 app.route("/api/users", userRoutes);
 app.route("/api/roles", roleRoutes);
+app.route("/api/uploads", uploadRoutes);
 
 app.notFound((c) => c.json({ error: "接口不存在" }, 404));
 

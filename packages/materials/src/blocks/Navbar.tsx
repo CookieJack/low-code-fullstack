@@ -96,7 +96,7 @@ export const navbarDef: MaterialDef = {
   },
   propSchema: [
     { type: "text", key: "brand", label: "品牌名称" },
-    { type: "url", key: "logoUrl", label: "Logo 图片地址", placeholder: "https://…" },
+    { type: "image", key: "logoUrl", label: "Logo 图片", placeholder: "https://…" },
     {
       type: "array",
       key: "links",

@@ -9,6 +9,7 @@
 - **可视化编辑器**:物料拖入画布(dnd-kit)、画布内拖拽排序、点击选中、属性面板按物料定义自动生成、区块样式(背景/内边距)覆盖
 - **所见即所得**:编辑画布、发布页、静态导出共用同一 React 渲染器;物料基于容器查询,设备模拟(桌面/平板/手机)与真实响应一致
 - **编辑体验**:撤销/重做(Ctrl+Z / Ctrl+Shift+Z)、防抖 1.5s 自动保存、页面大纲树
+- **图片上传**:物料图片属性支持平台内直接上传,存储可选本地磁盘(默认,开箱即用)或 S3 兼容对象存储(阿里云 OSS / 腾讯云 COS / MinIO / AWS S3);无上传权限时仍可粘贴外部 URL
 - **发布**:发布快照 + 可自定义 slug,`/p/{slug}` SSR 直出(SEO title),Redis 缓存加速;支持下线与重新发布
 - **表单收集**:联系表单提交入库(带 IP 限流),后台查看提交数据
 - **静态导出**:自包含单文件 HTML(内联 CSS + 表单提交脚本),可部署到任意静态服务器
@@ -47,6 +48,10 @@ docker-compose.yml  postgres + redis + server + web + nginx
 - `Page`:name / slug(唯一)/ title / schema(草稿)/ publishedSchema(发布快照)/ status / visibility(inherit|restricted)
 - `PageMember`:pageId / userId(pageId+userId 唯一)/ level(editor|viewer)
 - `FormSubmission`:pageId / componentId / data(JSONB)/ createdAt
+
+### 图片存储
+
+`STORAGE_DRIVER=local`(默认)时图片落在 `UPLOAD_DIR`(默认 `apps/server/data/uploads`),由 `GET /api/uploads/:key` 匿名读取(immutable 长缓存);浏览器与页面 Schema 中保存相对路径 `/api/uploads/…`,静态导出 HTML 会自动补全为 `SITE_API_URL` 绝对地址。`STORAGE_DRIVER=s3` 时写入 S3 兼容对象存储并直接返回公网地址(建议配 `S3_PUBLIC_BASE_URL` 走 CDN)。上传大小上限 `UPLOAD_MAX_MB`(默认 10,docker 部署勿超过 nginx `client_max_body_size 10m`)。
 
 ### 角色与权限(动态 RBAC)
 
@@ -90,7 +95,7 @@ pnpm dev               # web http://localhost:3000  server http://localhost:3001
 
 ### 环境变量
 
-- `apps/server/.env`:`DATABASE_URL`、`REDIS_URL`、`PORT`、`JWT_SECRET`(生产必配随机长密钥)
+- `apps/server/.env`:`DATABASE_URL`、`REDIS_URL`、`PORT`、`JWT_SECRET`(生产必配随机长密钥);图片存储(可选):`STORAGE_DRIVER=local|s3`、`UPLOAD_DIR`、`UPLOAD_MAX_MB`,S3 驱动需 `S3_BUCKET`、`S3_ACCESS_KEY_ID`、`S3_SECRET_ACCESS_KEY`,可选 `S3_ENDPOINT`(OSS/COS/MinIO 等兼容端点)、`S3_REGION`、`S3_PUBLIC_BASE_URL`(CDN/自定义域名)、`S3_FORCE_PATH_STYLE`(默认自建端点为 path-style)
 - `apps/web/.env.development`:`NEXT_PUBLIC_API_URL=http://localhost:3001`(浏览器直连 server)
 - 根 `.env`:docker compose 变量(端口、数据库凭据、`JWT_SECRET`)
 
@@ -118,7 +123,7 @@ docker compose up -d --build
 以「价格表」为例:
 
 1. `packages/materials/src/blocks/Pricing.tsx` — 组件:props 解构 + 兜底默认值,外层 `<section className="@container w-full">`(容器查询保证画布设备模拟精确);有状态交互的文件需加 `"use client"`
-2. `packages/materials/src/blocks/pricing-def.ts` — 定义:defaultProps(首拖即好看)+ propSchema(支持的控件:`text` `textarea` `url` `color` `number` `boolean` `select` `array` 嵌套字段)
+2. `packages/materials/src/blocks/pricing-def.ts` — 定义:defaultProps(首拖即好看)+ propSchema(支持的控件:`text` `textarea` `url` `image` `color` `number` `boolean` `select` `array` 嵌套字段)
 3. `packages/materials/src/index.ts` — 注册到 `materials` 数组
 
 无需改动编辑器/渲染器/属性面板,物料自动出现在左侧面板并全部可用。
@@ -157,6 +162,8 @@ GET    /api/pages/:id/members      协作成员列表(page:share)
 POST   /api/pages/:id/members      添加/更新成员 {userId, level: editor|viewer}(page:share)
 DELETE /api/pages/:id/members/:userId  移除成员(page:share)
 GET    /api/pages/:id/submissions  表单提交列表(submission:read 或该页成员)
+POST   /api/uploads            上传图片(multipart,字段 file;page:create 或 page:update)
+GET    /api/uploads/:key       读取本地存储的图片(匿名;仅 local 驱动)
 GET    /api/p/:slug            已发布 schema(Redis 缓存)(匿名)
 POST   /api/forms              表单提交 {pageId, componentId, data}(匿名,限流)
 GET    /api/healthz            健康检查(db/redis)(匿名)
@@ -164,6 +171,5 @@ GET    /api/healthz            健康检查(db/redis)(匿名)
 
 ## 后续可扩展
 
-- 图片上传(OSS/S3),当前物料图片以 URL 引用
 - 更多物料(轮播、视频、价格表、FAQ 等)、区块容器嵌套
 - 主题色全局配置、自定义域名绑定

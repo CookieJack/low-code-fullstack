@@ -18,6 +18,7 @@ import {
 } from "@lc/ui";
 import { useEditorStore } from "@/lib/editor-store";
 import { ColorField } from "./color-field";
+import { ImageField } from "./image-field";
 
 type ArrayField = Extract<PropField, { type: "array" }>;
 
@@ -54,6 +55,15 @@ function FieldControl({
             onChange={(e) => onChange(e.target.value)}
           />
         </div>
+      );
+    case "image":
+      return (
+        <ImageField
+          label={field.label}
+          value={typeof value === "string" ? value : ""}
+          placeholder={field.placeholder}
+          onChange={onChange}
+        />
       );
     case "color":
       return (

@@ -91,7 +91,7 @@ export const imageTextDef: MaterialDef = {
   propSchema: [
     { type: "text", key: "title", label: "标题" },
     { type: "textarea", key: "desc", label: "描述", rows: 4 },
-    { type: "url", key: "imageUrl", label: "图片地址", placeholder: "https://…" },
+    { type: "image", key: "imageUrl", label: "图片", placeholder: "https://…" },
     {
       type: "select",
       key: "imageSide",

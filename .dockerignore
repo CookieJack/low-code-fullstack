@@ -6,6 +6,8 @@ dist
 .git
 .env
 apps/server/.env
+# 本地上传的图片(local 存储驱动),不能打进镜像
+apps/server/data
 docker/ssl
 README.md
 apps/web/.next

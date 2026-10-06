@@ -29,6 +29,9 @@ coverage/
 # Prisma
 apps/server/prisma/*.db
 
+# Uploaded files (local storage driver)
+apps/server/data/
+
 # Cache
 .turbo/
 .cache/

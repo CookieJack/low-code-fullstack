@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1146.0",
     "@hono/node-server": "^1.13.0",
     "@lc/schema": "workspace:*",
     "@prisma/client": "^6.2.0",

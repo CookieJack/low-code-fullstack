@@ -138,6 +138,45 @@ export const updateRole = (
 export const deleteRole = (id: string) =>
   api<{ ok: true }>(`/api/roles/${id}`, { method: "DELETE" });
 
+export type UploadResult = { url: string; key: string; contentType: string; size: number };
+
+/** 上传图片(multipart 不能带 JSON Content-Type,故单独实现;复用 401 静默刷新逻辑) */
+export async function uploadImage(file: File): Promise<UploadResult> {
+  const send = () => {
+    const form = new FormData();
+    form.append("file", file);
+    const token = getAccessToken();
+    return fetch(`${API_BASE}/api/uploads`, {
+      method: "POST",
+      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+      body: form,
+    });
+  };
+  let res = await send();
+  if (res.status === 401 && getAccessToken()) {
+    if (await refreshOnce()) {
+      res = await send();
+    } else {
+      clearAndRedirect();
+      throw new ApiError(401, "登录已失效，请重新登录");
+    }
+  }
+  if (!res.ok) {
+    let msg = `上传失败 (${res.status})`;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body.error) msg = body.error;
+    } catch {
+      /* 非 JSON 响应 */
+    }
+    if (res.status === 401) {
+      clearAndRedirect();
+    }
+    throw new ApiError(res.status, msg);
+  }
+  return res.json() as Promise<UploadResult>;
+}
+
 export const listPageMembers = (pageId: string) =>
   api<PageMember[]>(`/api/pages/${pageId}/members`);
 export const upsertPageMember = (pageId: string, userId: string, level: PageMemberLevel) =>
