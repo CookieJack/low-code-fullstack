@@ -4,18 +4,17 @@ import { createUserInput, updateUserInput } from "@lc/schema";
 import { db } from "../lib/db";
 import { hashPassword } from "../lib/auth";
 import { parseBody, readJson } from "../lib/http";
-import { requirePermission, type AuthEnv } from "../middleware/auth";
+import { requirePermission, requireAnyPermission, type AuthEnv } from "../middleware/auth";
+import { assertRoleExists } from "./roles";
 
 export const userRoutes = new Hono<AuthEnv>();
-
-/** 全部端点仅 admin 可用 */
-userRoutes.use("*", requirePermission("user:read"));
 
 const PUBLIC_SELECT = {
   id: true,
   username: true,
   name: true,
   role: true,
+  roleRef: { select: { name: true } },
   enabled: true,
   createdAt: true,
 } as const;
@@ -25,9 +24,18 @@ const toDto = (u: {
   username: string;
   name: string;
   role: string;
+  roleRef: { name: string } | null;
   enabled: boolean;
   createdAt: Date;
-}) => ({ ...u, createdAt: u.createdAt.toISOString() });
+}) => ({
+  id: u.id,
+  username: u.username,
+  name: u.name,
+  role: u.role,
+  roleName: u.roleRef?.name ?? null,
+  enabled: u.enabled,
+  createdAt: u.createdAt.toISOString(),
+});
 
 /** 最后一个启用中的 admin 受保护:禁用/降级/删除后会导致系统锁死 */
 async function guardLastAdmin(userId: string, next: { role?: string; enabled?: boolean }) {
@@ -44,8 +52,11 @@ async function guardLastAdmin(userId: string, next: { role?: string; enabled?: b
   }
 }
 
-/** 用户列表 */
-userRoutes.get("/", async (c) => {
+/**
+ * 用户列表:user:read(用户管理)或 page:share(协作成员选择器)皆可。
+ * 协作场景只需要账号名用于挑选成员,返回字段一致。
+ */
+userRoutes.get("/", requireAnyPermission(["user:read", "page:share"]), async (c) => {
   const list = await db.user.findMany({
     orderBy: { createdAt: "asc" },
     select: PUBLIC_SELECT,
@@ -58,6 +69,7 @@ userRoutes.post("/", requirePermission("user:create"), async (c) => {
   const input = parseBody(createUserInput, await readJson(c));
   const exists = await db.user.findUnique({ where: { username: input.username } });
   if (exists) throw new HTTPException(409, { message: "用户名已被占用" });
+  await assertRoleExists(input.role);
 
   const user = await db.user.create({
     data: {
@@ -75,6 +87,7 @@ userRoutes.post("/", requirePermission("user:create"), async (c) => {
 userRoutes.put("/:id", requirePermission("user:update"), async (c) => {
   const id = c.req.param("id");
   const input = parseBody(updateUserInput, await readJson(c));
+  if (input.role !== undefined) await assertRoleExists(input.role);
   await guardLastAdmin(id, input);
 
   const user = await db.user.update({

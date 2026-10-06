@@ -23,8 +23,8 @@ import {
   Skeleton,
   Switch,
 } from "@lc/ui";
-import { ROLE_LABELS, roleSchema, type Role, type UserDto } from "@lc/schema";
-import { createUser, deleteUser, listUsers, updateUser } from "@/lib/api";
+import { ROLE_LABELS, type RoleDto, type UserDto } from "@lc/schema";
+import { createUser, deleteUser, listRoles, listUsers, updateUser } from "@/lib/api";
 import { useAuth, useRequireAuth } from "@/components/auth/auth-provider";
 import { UserMenu } from "@/components/auth/user-menu";
 
@@ -33,14 +33,15 @@ function formatTime(iso: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const ROLE_OPTIONS = roleSchema.options;
+const roleLabel = (key: string, roleName?: string | null) =>
+  roleName || ROLE_LABELS[key] || key;
 
-function RoleBadge({ role }: { role: Role }) {
-  const variant = role === "admin" ? "success" : role === "editor" ? "default" : "secondary";
+function RoleBadge({ role, roleName }: { role: string; roleName?: string | null }) {
+  const variant = role === "admin" ? "success" : role === "viewer" ? "secondary" : "default";
   return (
     <Badge variant={variant}>
       {role === "admin" ? <ShieldCheck className="h-3 w-3" /> : null}
-      {ROLE_LABELS[role]}
+      {roleLabel(role, roleName)}
     </Badge>
   );
 }
@@ -50,25 +51,26 @@ export default function UsersPage() {
   const { user, loading: authLoading } = useRequireAuth();
   const { can } = useAuth();
   const [users, setUsers] = useState<UserDto[]>([]);
+  const [roles, setRoles] = useState<RoleDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   // 新建
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({ username: "", password: "", name: "" });
-  const [formRole, setFormRole] = useState<Role>("viewer");
+  const [formRole, setFormRole] = useState("viewer");
   const [creating, setCreating] = useState(false);
 
   // 编辑
   const [editTarget, setEditTarget] = useState<UserDto | null>(null);
   const [editName, setEditName] = useState("");
-  const [editRole, setEditRole] = useState<Role>("viewer");
+  const [editRole, setEditRole] = useState("viewer");
   const [editEnabled, setEditEnabled] = useState(true);
   const [editPassword, setEditPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<UserDto | null>(null);
 
-  // 非 admin 无权访问,送回首页
+  // 无 user:read 权限,送回首页
   useEffect(() => {
     if (!authLoading && user && !can("user:read")) {
       router.replace("/");
@@ -77,7 +79,9 @@ export default function UsersPage() {
 
   const refresh = useCallback(async () => {
     try {
-      setUsers(await listUsers());
+      const [users, roles] = await Promise.all([listUsers(), listRoles()]);
+      setUsers(users);
+      setRoles(roles);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "加载用户列表失败");
     } finally {
@@ -221,7 +225,7 @@ export default function UsersPage() {
                       </div>
                     </td>
                     <td className="px-5 py-3">
-                      <RoleBadge role={u.role} />
+                      <RoleBadge role={u.role} roleName={u.roleName} />
                     </td>
                     <td className="px-5 py-3">
                       <Badge variant={u.enabled ? "success" : "destructive"}>
@@ -295,19 +299,22 @@ export default function UsersPage() {
             </div>
             <div className="space-y-1.5">
               <Label>角色</Label>
-              <Select value={formRole} onValueChange={(v) => setFormRole(v as Role)}>
+              <Select value={formRole} onValueChange={setFormRole}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLE_OPTIONS.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {ROLE_LABELS[r]}
+                  {roles.map((r) => (
+                    <SelectItem key={r.key} value={r.key}>
+                      {r.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">编辑:管理页面并可发布;访客:只读</p>
+              <p className="text-xs text-muted-foreground">
+                {roles.find((r) => r.key === formRole)?.description ||
+                  "角色权限可在「角色权限」页中配置"}
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -338,14 +345,14 @@ export default function UsersPage() {
             </div>
             <div className="space-y-1.5">
               <Label>角色</Label>
-              <Select value={editRole} onValueChange={(v) => setEditRole(v as Role)}>
+              <Select value={editRole} onValueChange={setEditRole}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLE_OPTIONS.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {ROLE_LABELS[r]}
+                  {roles.map((r) => (
+                    <SelectItem key={r.key} value={r.key}>
+                      {r.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

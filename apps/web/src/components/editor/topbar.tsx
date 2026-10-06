@@ -22,6 +22,7 @@ import {
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
 import {
+  Badge,
   Button,
   Dialog,
   DialogContent,
@@ -37,7 +38,6 @@ import { publishPage } from "@/lib/api";
 import { saveNow } from "@/lib/editor-save";
 import { useEditorStore, type Device } from "@/lib/editor-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { useAuth } from "@/components/auth/auth-provider";
 import { UserMenu } from "@/components/auth/user-menu";
 
 function slugify(name: string): string {
@@ -183,12 +183,12 @@ function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 }
 
 export function Topbar() {
-  const { can } = useAuth();
   const pageName = useEditorStore((s) => s.pageName);
-  const device = useEditorStore((s) => s.device);
-  const setDevice = useEditorStore((s) => s.setDevice);
+  const access = useEditorStore((s) => s.access);
   const previewMode = useEditorStore((s) => s.previewMode);
   const setPreviewMode = useEditorStore((s) => s.setPreviewMode);
+  const device = useEditorStore((s) => s.device);
+  const setDevice = useEditorStore((s) => s.setDevice);
   const dirty = useEditorStore((s) => s.dirty);
   const saving = useEditorStore((s) => s.saving);
   const lastSavedAt = useEditorStore((s) => s.lastSavedAt);
@@ -218,13 +218,25 @@ export function Topbar() {
         </Link>
       </Button>
       <div className="min-w-0">
-        <div className="truncate text-sm font-semibold">{pageName || "未命名页面"}</div>
-        <div
-          className={`text-xs ${dirty ? "text-amber-600" : "text-muted-foreground"}`}
-          data-testid="save-status"
-        >
-          {saveLabel}
+        <div className="flex items-center gap-2">
+          <span className="truncate text-sm font-semibold">{pageName || "未命名页面"}</span>
+          {access === "viewer" ? (
+            <Badge variant="secondary" className="shrink-0">
+              <Eye className="h-3 w-3" />
+              只读
+            </Badge>
+          ) : null}
         </div>
+        {access !== "viewer" ? (
+          <div
+            className={`text-xs ${dirty ? "text-amber-600" : "text-muted-foreground"}`}
+            data-testid="save-status"
+          >
+            {saveLabel}
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground">协作查看者</div>
+        )}
       </div>
 
       <div className="mx-2 flex items-center gap-1">
@@ -255,15 +267,17 @@ export function Topbar() {
         ))}
       </div>
 
-      <Button
-        variant={previewMode ? "secondary" : "ghost"}
-        size="sm"
-        onClick={() => setPreviewMode(!previewMode)}
-        title="预览模式(隐藏编辑辅助)"
-      >
-        {previewMode ? <EyeOff /> : <Eye />}
-        {previewMode ? "退出预览" : "预览"}
-      </Button>
+      {access !== "viewer" ? (
+        <Button
+          variant={previewMode ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => setPreviewMode(!previewMode)}
+          title="预览模式(隐藏编辑辅助)"
+        >
+          {previewMode ? <EyeOff /> : <Eye />}
+          {previewMode ? "退出预览" : "预览"}
+        </Button>
+      ) : null}
 
       <div className="ml-auto flex items-center gap-2">
         <ThemeToggle />
@@ -277,7 +291,7 @@ export function Topbar() {
           <Download />
           导出 HTML
         </Button>
-        {can("page:publish") ? (
+        {access === "editor" ? (
           <Button
             size="sm"
             className="bg-brand-gradient text-white shadow-brand hover:opacity-90"

@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Users } from "lucide-react";
+import { KeyRound, LogOut, Users } from "lucide-react";
 import {
   Badge,
   Button,
@@ -13,7 +13,7 @@ import {
 import { ROLE_LABELS } from "@lc/schema";
 import { useAuth } from "@/components/auth/auth-provider";
 
-/** 右上角当前用户菜单:账号信息、用户管理入口(仅 admin)、退出登录 */
+/** 右上角当前用户菜单:账号信息、用户/角色管理入口(按权限显隐)、退出登录 */
 export function UserMenu() {
   const { user, can, logout } = useAuth();
   if (!user) return null;
@@ -33,7 +33,7 @@ export function UserMenu() {
           <div className="text-sm font-medium">{user.name || user.username}</div>
           <div className="text-xs text-muted-foreground">@{user.username}</div>
           <Badge variant="secondary" className="mt-1.5">
-            {ROLE_LABELS[user.role]}
+            {user.roleName || ROLE_LABELS[user.role] || user.role}
           </Badge>
         </div>
         <DropdownMenuSeparator />
@@ -42,6 +42,14 @@ export function UserMenu() {
             <a href="/users">
               <Users />
               用户管理
+            </a>
+          </DropdownMenuItem>
+        ) : null}
+        {can("role:read") ? (
+          <DropdownMenuItem asChild>
+            <a href="/roles">
+              <KeyRound />
+              角色权限
             </a>
           </DropdownMenuItem>
         ) : null}

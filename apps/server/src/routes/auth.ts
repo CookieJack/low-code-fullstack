@@ -1,13 +1,15 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { loginInput, refreshInput } from "@lc/schema";
-import { db } from "../lib/db";
 import { parseBody, readJson } from "../lib/http";
 import { rateLimit } from "../lib/rate-limit";
 import {
+  findUserById,
+  findUserByUsername,
   issueTokens,
   revokeRefreshToken,
   rotateRefreshToken,
+  toPublicUser,
   verifyPassword,
 } from "../lib/auth";
 import type { AuthEnv } from "../middleware/auth";
@@ -27,7 +29,7 @@ authRoutes.post("/login", async (c) => {
   }
 
   const input = parseBody(loginInput, await readJson(c));
-  const user = await db.user.findUnique({ where: { username: input.username } });
+  const user = await findUserByUsername(input.username);
   // 用户名不存在与密码错误同样处理,不暴露账号是否存在
   const ok = user && user.enabled ? await verifyPassword(input.password, user.passwordHash) : false;
   if (!user || !ok) {
@@ -57,19 +59,12 @@ authRoutes.post("/logout", async (c) => {
   return c.json({ ok: true });
 });
 
-/** 当前登录用户(前端挂载时刷新角色/校验 token) */
+/** 当前登录用户(前端挂载时刷新角色/权限、校验 token) */
 authRoutes.get("/me", async (c) => {
   const authUser = c.get("authUser");
-  const user = await db.user.findUnique({ where: { id: authUser.id } });
+  const user = await findUserById(authUser.id);
   if (!user || !user.enabled) {
     throw new HTTPException(401, { message: "账号不存在或已被禁用" });
   }
-  return c.json({
-    id: user.id,
-    username: user.username,
-    name: user.name,
-    role: user.role,
-    enabled: user.enabled,
-    createdAt: user.createdAt.toISOString(),
-  });
+  return c.json(await toPublicUser(user));
 });

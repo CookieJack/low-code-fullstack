@@ -1,4 +1,12 @@
-import type { PageDetail, PageMeta, PublishedPage, Role, UserDto } from "@lc/schema";
+import type {
+  PageDetail,
+  PageMember,
+  PageMeta,
+  PageMemberLevel,
+  PublishedPage,
+  RoleDto,
+  UserDto,
+} from "@lc/schema";
 import { clearAuth, getAccessToken, redirectToLogin, refreshSession } from "./auth-client";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -101,12 +109,42 @@ export const createUser = (data: {
   username: string;
   password: string;
   name?: string;
-  role: Role;
+  role: string;
 }) => api<UserDto>("/api/users", { method: "POST", body: JSON.stringify(data) });
 export const updateUser = (
   id: string,
-  data: { name?: string; role?: Role; enabled?: boolean; password?: string },
+  data: { name?: string; role?: string; enabled?: boolean; password?: string },
 ) => api<UserDto>(`/api/users/${id}`, { method: "PUT", body: JSON.stringify(data) });
 export const deleteUser = (id: string) =>
   api<{ ok: true }>(`/api/users/${id}`, { method: "DELETE" });
+
+export const updatePageVisibility = (id: string, visibility: "inherit" | "restricted") =>
+  api<PageDetail>(`/api/pages/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ visibility }),
+  });
+
+export const listRoles = () => api<RoleDto[]>("/api/roles");
+export const createRole = (data: {
+  key: string;
+  name: string;
+  description?: string;
+  permissions: string[];
+}) => api<RoleDto>("/api/roles", { method: "POST", body: JSON.stringify(data) });
+export const updateRole = (
+  id: string,
+  data: { name?: string; description?: string; permissions?: string[] },
+) => api<RoleDto>(`/api/roles/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteRole = (id: string) =>
+  api<{ ok: true }>(`/api/roles/${id}`, { method: "DELETE" });
+
+export const listPageMembers = (pageId: string) =>
+  api<PageMember[]>(`/api/pages/${pageId}/members`);
+export const upsertPageMember = (pageId: string, userId: string, level: PageMemberLevel) =>
+  api<PageMember>(`/api/pages/${pageId}/members`, {
+    method: "POST",
+    body: JSON.stringify({ userId, level }),
+  });
+export const removePageMember = (pageId: string, userId: string) =>
+  api<{ ok: true }>(`/api/pages/${pageId}/members/${userId}`, { method: "DELETE" });
 export type { PageDetail, PageMeta, PublishedPage };

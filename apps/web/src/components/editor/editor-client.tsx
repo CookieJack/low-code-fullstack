@@ -34,6 +34,7 @@ export function EditorClient({ pageId }: { pageId: string }) {
   const schema = useEditorStore((s) => s.schema);
   const dirty = useEditorStore((s) => s.dirty);
   const previewMode = useEditorStore((s) => s.previewMode);
+  const access = useEditorStore((s) => s.access);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
@@ -45,7 +46,15 @@ export function EditorClient({ pageId }: { pageId: string }) {
     (async () => {
       try {
         const page = await getPage(pageId);
-        if (!cancelled) load({ id: page.id, name: page.name, slug: page.slug, schema: page.schema });
+        if (!cancelled) {
+          load({
+            id: page.id,
+            name: page.name,
+            slug: page.slug,
+            schema: page.schema,
+            access: page.access,
+          });
+        }
       } catch (e) {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : "加载失败");
       } finally {
@@ -57,12 +66,12 @@ export function EditorClient({ pageId }: { pageId: string }) {
     };
   }, [pageId, load]);
 
-  // 自动保存:变更后防抖 1.5s
+  // 自动保存:变更后防抖 1.5s(只读访问不保存)
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty || access === "viewer" || access === "none") return;
     const t = setTimeout(() => void saveNow(), 1500);
     return () => clearTimeout(t);
-  }, [schema, dirty]);
+  }, [schema, dirty, access]);
 
   // 快捷键:撤销 / 重做 / 保存
   useEffect(() => {
@@ -153,9 +162,9 @@ export function EditorClient({ pageId }: { pageId: string }) {
         onDragCancel={() => setActiveLabel(null)}
       >
         <div className="flex min-h-0 flex-1">
-          {!previewMode && <MaterialPanel />}
+          {!previewMode && access !== "viewer" && <MaterialPanel />}
           <Canvas />
-          {!previewMode && <PropertyPanel />}
+          {!previewMode && access !== "viewer" && <PropertyPanel />}
         </div>
         <DragOverlay>{activeLabel ? (
           <div className="rounded-md bg-brand-gradient px-3 py-1.5 text-xs font-medium text-white shadow-lg">

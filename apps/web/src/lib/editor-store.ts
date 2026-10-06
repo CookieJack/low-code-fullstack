@@ -18,6 +18,8 @@ interface LoadPayload {
   name: string;
   slug: string | null;
   schema: PageSchema;
+  /** 当前用户对该页的访问级别;viewer 时编辑器进入只读模式 */
+  access?: "editor" | "viewer" | "none";
 }
 
 interface EditorState {
@@ -25,6 +27,8 @@ interface EditorState {
   pageName: string;
   pageSlug: string | null;
   schema: PageSchema;
+  /** 当前用户对该页面的访问级别(null = 未加载) */
+  access: "editor" | "viewer" | "none" | null;
   selectedId: string | null;
   past: PageSchema[];
   future: PageSchema[];
@@ -62,6 +66,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   pageName: "",
   pageSlug: null,
   schema: { version: 1, title: "", nodes: [] },
+  access: null,
   selectedId: null,
   past: [],
   future: [],
@@ -77,6 +82,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       pageName: page.name,
       pageSlug: page.slug,
       schema: structuredClone(page.schema),
+      access: page.access ?? "editor",
+      // 只读访问:强制预览模式(隐藏物料/属性面板与拖拽把手)
+      previewMode: page.access === "viewer",
       selectedId: null,
       past: [],
       future: [],

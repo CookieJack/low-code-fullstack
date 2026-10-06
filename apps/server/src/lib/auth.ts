@@ -1,14 +1,16 @@
 import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { sign, verify } from "hono/jwt";
-import type { Role } from "@prisma/client";
+import type { User } from "@prisma/client";
 import { db } from "./db";
 import { ACCESS_TOKEN_TTL_SEC, JWT_SECRET, REFRESH_TOKEN_TTL_DAYS } from "./config";
+import { getRolePermissions } from "./access";
 
 export interface AuthUser {
   id: string;
   username: string;
-  role: Role;
+  /** 角色 key(动态角色,存于 Role 表) */
+  role: string;
 }
 
 /** access token 的 JWT payload(hono/jwt 要求带索引签名) */
@@ -16,7 +18,7 @@ interface AccessPayload {
   [key: string]: unknown;
   sub: string;
   username: string;
-  role: Role;
+  role: string;
   /** token 类型,校验时要求为 access */
   typ: "access";
   exp: number;
@@ -48,7 +50,7 @@ export async function verifyAccessToken(token: string): Promise<AuthUser | null>
   try {
     const payload = await verify(token, JWT_SECRET, "HS256");
     if (payload.typ !== "access" || typeof payload.sub !== "string") return null;
-    return { id: payload.sub, username: String(payload.username ?? ""), role: payload.role as Role };
+    return { id: payload.sub, username: String(payload.username ?? ""), role: String(payload.role ?? "") };
   } catch {
     return null;
   }
@@ -58,33 +60,40 @@ export async function verifyAccessToken(token: string): Promise<AuthUser | null>
 
 const sha256 = (v: string) => createHash("sha256").update(v).digest("hex");
 
-function toPublic(user: {
-  id: string;
-  username: string;
-  name: string;
-  role: Role;
-  enabled: boolean;
-  createdAt: Date;
-}) {
+type UserWithRole = User & { roleRef?: { name: string } | null };
+
+/** 用户公开信息:角色 key + 显示名 + 权限点(前端 can() 与角色徽标共用) */
+export async function toPublicUser(user: UserWithRole) {
+  const permissions = await getRolePermissions(user.role);
   return {
     id: user.id,
     username: user.username,
     name: user.name,
     role: user.role,
+    roleName: user.roleRef?.name ?? null,
+    permissions,
     enabled: user.enabled,
     createdAt: user.createdAt.toISOString(),
   };
 }
 
+/** 登录时按 username 取用户(联角色显示名) */
+export function findUserByUsername(username: string) {
+  return db.user.findUnique({
+    where: { username },
+    include: { roleRef: { select: { name: true } } },
+  });
+}
+
+export function findUserById(id: string) {
+  return db.user.findUnique({
+    where: { id },
+    include: { roleRef: { select: { name: true } } },
+  });
+}
+
 /** 签发一对 token;refresh 原文只在返回值中出现一次,库里存哈希 */
-export async function issueTokens(user: {
-  id: string;
-  username: string;
-  name: string;
-  role: Role;
-  enabled: boolean;
-  createdAt: Date;
-}) {
+export async function issueTokens(user: UserWithRole) {
   const refreshToken = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
   await db.refreshToken.create({
@@ -93,7 +102,7 @@ export async function issueTokens(user: {
   return {
     accessToken: await signAccessToken(user),
     refreshToken,
-    user: toPublic(user),
+    user: await toPublicUser(user),
   };
 }
 
@@ -105,7 +114,7 @@ export async function rotateRefreshToken(refreshToken: string) {
   const tokenHash = sha256(refreshToken);
   const record = await db.refreshToken.findUnique({
     where: { tokenHash },
-    include: { user: true },
+    include: { user: { include: { roleRef: { select: { name: true } } } } },
   });
   if (!record) return null;
 

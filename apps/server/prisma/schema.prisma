@@ -7,10 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  admin
-  editor
-  viewer
+model Role {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String   @default("")
+  permissions String[]
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
 }
 
 model User {
@@ -18,11 +24,13 @@ model User {
   username      String         @unique
   passwordHash  String
   name          String         @default("")
-  role          Role           @default(viewer)
+  role          String         @default("viewer")
+  roleRef       Role           @relation(fields: [role], references: [key])
   enabled       Boolean        @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   refreshTokens RefreshToken[]
+  pageMembers   PageMember[]
 }
 
 model RefreshToken {
@@ -37,16 +45,33 @@ model RefreshToken {
 }
 
 model Page {
-  id              String   @id @default(cuid())
+  id              String          @id @default(cuid())
   name            String
-  slug            String?  @unique
-  title           String   @default("")
+  slug            String?         @unique
+  title           String          @default("")
   schema          Json
   publishedSchema Json?
-  status          String   @default("draft")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status          String          @default("draft")
+  /** inherit:按全局角色访问;restricted:仅协作成员与全局可编辑者可见 */
+  visibility      String          @default("inherit")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
   submissions     FormSubmission[]
+  members         PageMember[]
+}
+
+model PageMember {
+  id        String   @id @default(cuid())
+  pageId    String
+  userId    String
+  /** editor:可编辑并发布该页;viewer:只读 */
+  level     String   @default("viewer")
+  createdAt DateTime @default(now())
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, userId])
+  @@index([userId])
 }
 
 model FormSubmission {

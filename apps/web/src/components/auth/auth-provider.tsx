@@ -62,7 +62,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       loading,
-      can: (perm) => (user?.enabled ? hasPermission(user.role, perm) : false),
+      // 权限点由服务端随登录/me 下发(动态角色);旧缓存对象无 permissions 时回退到内置映射
+      can: (perm) =>
+        user?.enabled
+          ? (user.permissions?.includes(perm) ?? hasPermission(user.role, perm))
+          : false,
       login,
       logout,
     }),

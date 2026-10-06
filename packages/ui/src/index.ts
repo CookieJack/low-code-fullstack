@@ -5,6 +5,7 @@ export { Textarea } from "./components/textarea";
 export { Label } from "./components/label";
 export { Select, SelectGroup, SelectValue, SelectTrigger, SelectContent, SelectItem } from "./components/select";
 export { Switch } from "./components/switch";
+export { Checkbox } from "./components/checkbox";
 export { Slider } from "./components/slider";
 export { Dialog, DialogTrigger, DialogClose, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from "./components/dialog";
 export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "./components/dropdown-menu";

@@ -14,6 +14,7 @@ import {
   Rocket,
   Table2,
   Trash2,
+  UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -37,16 +38,23 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Separator,
   Skeleton,
+  Switch,
 } from "@lc/ui";
-import type { PageMeta } from "@lc/schema";
+import type { PageMember, PageMeta, PageMemberLevel, UserDto } from "@lc/schema";
 import {
   createPage,
   deletePage,
   duplicatePage,
   getSubmissions,
+  listPageMembers,
   listPages,
+  listUsers,
+  removePageMember,
   unpublishPage,
+  updatePageVisibility,
+  upsertPageMember,
 } from "@/lib/api";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useAuth, useRequireAuth } from "@/components/auth/auth-provider";
@@ -130,6 +138,76 @@ export default function DashboardPage() {
   const [submissions, setSubmissions] = useState<
     { id: string; data: Record<string, string>; createdAt: string }[]
   >([]);
+
+  // 协作成员管理
+  const [membersOf, setMembersOf] = useState<PageMeta | null>(null);
+  const [members, setMembers] = useState<PageMember[]>([]);
+  const [allUsers, setAllUsers] = useState<UserDto[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [memberPick, setMemberPick] = useState<string>("");
+  const [memberLevel, setMemberLevel] = useState<PageMemberLevel>("viewer");
+  const [memberBusy, setMemberBusy] = useState(false);
+  const [visibility, setVisibility] = useState<"inherit" | "restricted">("inherit");
+
+  async function openMembers(page: PageMeta) {
+    setMembersOf(page);
+    setMembers([]);
+    setMemberPick("");
+    setMemberLevel("viewer");
+    setVisibility(page.visibility === "restricted" ? "restricted" : "inherit");
+    setMembersLoading(true);
+    try {
+      const [members, users] = await Promise.all([listPageMembers(page.id), listUsers()]);
+      setMembers(members);
+      setAllUsers(users);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "加载协作成员失败");
+    } finally {
+      setMembersLoading(false);
+    }
+  }
+
+  async function handleToggleVisibility(v: boolean) {
+    if (!membersOf) return;
+    const next = v ? "restricted" : "inherit";
+    setVisibility(next);
+    try {
+      await updatePageVisibility(membersOf.id, next);
+      toast.success(v ? "已限制访问:仅协作成员可见" : "已恢复:有页面权限的角色均可见");
+      setMembersOf({ ...membersOf, visibility: next });
+      setPages((prev) =>
+        prev.map((p) => (p.id === membersOf.id ? { ...p, visibility: next } : p)),
+      );
+    } catch (e) {
+      setVisibility(next === "restricted" ? "inherit" : "restricted");
+      toast.error(e instanceof Error ? e.message : "修改失败");
+    }
+  }
+
+  async function handleAddMember() {
+    if (!membersOf || !memberPick) return;
+    setMemberBusy(true);
+    try {
+      const member = await upsertPageMember(membersOf.id, memberPick, memberLevel);
+      setMembers((prev) => [...prev.filter((m) => m.userId !== member.userId), member]);
+      setMemberPick("");
+      toast.success("已添加协作成员");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "添加失败");
+    } finally {
+      setMemberBusy(false);
+    }
+  }
+
+  async function handleRemoveMember(userId: string) {
+    if (!membersOf) return;
+    try {
+      await removePageMember(membersOf.id, userId);
+      setMembers((prev) => prev.filter((m) => m.userId !== userId));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "移除失败");
+    }
+  }
 
   const refresh = useCallback(async () => {
     try {
@@ -311,16 +389,24 @@ export default function DashboardPage() {
                   <div className="flex flex-1 flex-col p-4">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="truncate font-semibold">{page.name}</h3>
-                      <Badge variant={page.status === "published" ? "success" : "secondary"}>
-                        <span
-                          className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${
-                            page.status === "published"
-                              ? "bg-emerald-500"
-                              : "bg-muted-foreground/60"
-                          }`}
-                        />
-                        {page.status === "published" ? "已发布" : "草稿"}
-                      </Badge>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {page.visibility === "restricted" ? (
+                          <Badge variant="outline" className="gap-1">
+                            <UsersRound className="h-3 w-3" />
+                            协作
+                          </Badge>
+                        ) : null}
+                        <Badge variant={page.status === "published" ? "success" : "secondary"}>
+                          <span
+                            className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${
+                              page.status === "published"
+                                ? "bg-emerald-500"
+                                : "bg-muted-foreground/60"
+                            }`}
+                          />
+                          {page.status === "published" ? "已发布" : "草稿"}
+                        </Badge>
+                      </div>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       更新于 {formatTime(page.updatedAt)}
@@ -343,15 +429,21 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="mt-4 flex items-center gap-2">
-                      {can("page:update") ? (
+                      {page.access === "editor" ? (
                         <Button asChild size="sm" className="flex-1">
                           <Link href={`/editor/${page.id}`}>
                             <Pencil />
                             编辑
                           </Link>
                         </Button>
+                      ) : page.access === "viewer" ? (
+                        <Button asChild size="sm" variant="outline" className="flex-1">
+                          <Link href={`/editor/${page.id}`}>
+                            查看
+                          </Link>
+                        </Button>
                       ) : null}
-                      {page.status === "published" && can("page:unpublish") ? (
+                      {page.status === "published" && page.access === "editor" ? (
                         <Button
                           size="sm"
                           variant="outline"
@@ -379,6 +471,12 @@ export default function DashboardPage() {
                             <Table2 />
                             提交数据
                           </DropdownMenuItem>
+                          {can("page:share") ? (
+                            <DropdownMenuItem onClick={() => void openMembers(page)}>
+                              <UsersRound />
+                              协作成员
+                            </DropdownMenuItem>
+                          ) : null}
                           {can("page:create") ? (
                             <DropdownMenuItem
                               onClick={async () => {
@@ -519,6 +617,136 @@ export default function DashboardPage() {
               </table>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 协作成员 */}
+      <Dialog open={!!membersOf} onOpenChange={(v) => !v && setMembersOf(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>协作成员 — {membersOf?.name}</DialogTitle>
+            <DialogDescription>
+              把单个用户加为该页面的编辑者或查看者,不受其全局角色限制
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2.5">
+            <div>
+              <Label htmlFor="m-visibility">限制访问</Label>
+              <p className="text-xs text-muted-foreground">
+                开启后仅协作成员与站点维护者可见此页面
+              </p>
+            </div>
+            <Switch
+              id="m-visibility"
+              checked={visibility === "restricted"}
+              onCheckedChange={(v) => void handleToggleVisibility(v)}
+            />
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label>成员列表</Label>
+            {membersLoading ? (
+              <div className="space-y-2 py-2">
+                <Skeleton className="h-10 rounded-lg" />
+                <Skeleton className="h-10 rounded-lg" />
+              </div>
+            ) : members.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                还没有协作成员,从下方添加
+              </p>
+            ) : (
+              <div className="max-h-56 space-y-2 overflow-auto pr-1">
+                {members.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-2.5 rounded-lg border px-3 py-2"
+                  >
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-gradient text-xs font-semibold text-white">
+                      {(m.name || m.username).slice(0, 1).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{m.name || m.username}</div>
+                      <div className="text-xs text-muted-foreground">@{m.username}</div>
+                    </div>
+                    <Select
+                      value={m.level}
+                      onValueChange={async (level) => {
+                        try {
+                          const updated = await upsertPageMember(
+                            membersOf!.id,
+                            m.userId,
+                            level as PageMemberLevel,
+                          );
+                          setMembers((prev) =>
+                            prev.map((x) => (x.userId === updated.userId ? updated : x)),
+                          );
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : "修改失败");
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-24 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="editor">编辑者</SelectItem>
+                        <SelectItem value="viewer">查看者</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive"
+                      title="移除成员"
+                      onClick={() => void handleRemoveMember(m.userId)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label>添加成员</Label>
+            <div className="flex items-center gap-2">
+              <Select value={memberPick} onValueChange={setMemberPick}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="选择用户" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allUsers
+                    .filter((u) => u.enabled && !members.some((m) => m.userId === u.id))
+                    .map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name || u.username}（@{u.username}）
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <Select value={memberLevel} onValueChange={(v) => setMemberLevel(v as PageMemberLevel)}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="editor">编辑者</SelectItem>
+                  <SelectItem value="viewer">查看者</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button disabled={!memberPick || memberBusy} onClick={() => void handleAddMember()}>
+                添加
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              编辑者:可编辑草稿并发布该页;查看者:只读。成员权限仅对本页面生效,全局角色权限不受影响。
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

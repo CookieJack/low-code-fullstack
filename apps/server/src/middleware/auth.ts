@@ -1,8 +1,9 @@
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
-import { hasPermission, type Permission } from "@lc/schema";
+import type { Permission } from "@lc/schema";
 import type { AuthUser } from "../lib/auth";
 import { verifyAccessToken } from "../lib/auth";
+import { getUserPermissions } from "../lib/access";
 
 export type AuthEnv = {
   Variables: { authUser: AuthUser };
@@ -33,12 +34,16 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (c, next) => {
   return next();
 });
 
-/** 在 authMiddleware 之后使用:校验当前用户是否持有权限点 */
+/** 在 authMiddleware 之后使用:校验当前用户是否持有权限点(权限由 DB 中的角色决定) */
 export const requirePermission = (perm: Permission) =>
+  requireAnyPermission([perm]);
+
+export const requireAnyPermission = (perms: readonly Permission[]) =>
   createMiddleware<AuthEnv>(async (c, next) => {
     const user = c.get("authUser");
     if (!user) throw new HTTPException(401, { message: "未登录或登录已过期" });
-    if (!hasPermission(user.role, perm)) {
+    const owned = await getUserPermissions(user);
+    if (!perms.some((p) => owned.includes(p))) {
       throw new HTTPException(403, { message: "没有执行此操作的权限" });
     }
     return next();
