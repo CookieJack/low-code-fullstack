@@ -37,6 +37,8 @@ import { publishPage } from "@/lib/api";
 import { saveNow } from "@/lib/editor-save";
 import { useEditorStore, type Device } from "@/lib/editor-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { useAuth } from "@/components/auth/auth-provider";
+import { UserMenu } from "@/components/auth/user-menu";
 
 function slugify(name: string): string {
   const base = name
@@ -44,6 +46,29 @@ function slugify(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return base || `page-${nanoid(5).toLowerCase()}`;
+}
+
+/** 导出静态 HTML:页面数据由浏览器随请求传入(页面接口已纳入鉴权),web 端只做渲染 */
+async function exportHtml(): Promise<void> {
+  const { pageId, pageName, pageSlug, schema } = useEditorStore.getState();
+  if (!pageId) return;
+  const res = await fetch(`/api/export/${pageId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: pageName, slug: pageSlug, title: schema.title, schema }),
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "");
+    throw new Error(msg || `导出失败 (${res.status})`);
+  }
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "page.html";
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 const DEVICES: { key: Device; icon: typeof Monitor; label: string }[] = [
@@ -158,6 +183,7 @@ function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 }
 
 export function Topbar() {
+  const { can } = useAuth();
   const pageName = useEditorStore((s) => s.pageName);
   const device = useEditorStore((s) => s.device);
   const setDevice = useEditorStore((s) => s.setDevice);
@@ -241,20 +267,27 @@ export function Topbar() {
 
       <div className="ml-auto flex items-center gap-2">
         <ThemeToggle />
-        <Button variant="outline" size="sm" asChild disabled={!pageId}>
-          <a href={`/api/export/${pageId}`} title="导出当前草稿为静态 HTML">
-            <Download />
-            导出 HTML
-          </a>
-        </Button>
         <Button
+          variant="outline"
           size="sm"
-          className="bg-brand-gradient text-white shadow-brand hover:opacity-90"
-          onClick={() => setPublishOpen(true)}
+          disabled={!pageId}
+          onClick={() => exportHtml().catch((e) => toast.error(e instanceof Error ? e.message : "导出失败"))}
+          title="导出当前草稿为静态 HTML"
         >
-          <Rocket />
-          发布
+          <Download />
+          导出 HTML
         </Button>
+        {can("page:publish") ? (
+          <Button
+            size="sm"
+            className="bg-brand-gradient text-white shadow-brand hover:opacity-90"
+            onClick={() => setPublishOpen(true)}
+          >
+            <Rocket />
+            发布
+          </Button>
+        ) : null}
+        <UserMenu />
       </div>
 
       <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} />

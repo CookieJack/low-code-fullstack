@@ -4,27 +4,11 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Renderer } from "@lc/renderer";
-import { pageSchemaSchema } from "@lc/schema";
-import type { PageDetail } from "@lc/schema";
+import { exportPageInput } from "@lc/schema";
+import type { PageSchema } from "@lc/schema";
 
 /** 静态导出中表单提交指向的公网 API(部署后可访问的平台地址) */
 const SITE_API = process.env.SITE_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
-
-/** 服务端回源地址(容器内指向 server 服务) */
-const INTERNAL = process.env.API_INTERNAL_URL ?? "http://localhost:3001";
-
-async function fetchPage(pageId: string): Promise<PageDetail | null> {
-  try {
-    const res = await fetch(`${INTERNAL}/api/pages/${encodeURIComponent(pageId)}`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as PageDetail;
-    return { ...data, schema: pageSchemaSchema.parse(data.schema) };
-  } catch {
-    return null;
-  }
-}
 
 /** 收集 Next 构建产物中的编译后 CSS(Tailwind 已含全部物料类名)。
  *  兼容本地(dev/build 直接运行)与 standalone 容器(cwd 下 apps/web 层级)。 */
@@ -77,19 +61,27 @@ document.addEventListener("submit",function(e){
 });
 </script>`;
 
+/** 页面数据由浏览器随请求传入(页面接口已纳入 JWT 鉴权,服务端回源不再可行),这里只负责渲染 */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const pageId = String(req.query.pageId ?? "");
-  const page = await fetchPage(pageId);
-  if (!page) {
-    res.status(404).send("页面不存在");
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    res.status(405).send("方法不允许");
     return;
   }
 
+  const parsed = exportPageInput.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).send("导出数据无效");
+    return;
+  }
+  const page = parsed.data;
+  const schema: PageSchema = page.schema;
+
   const body = renderToStaticMarkup(
     createElement(Renderer, {
-      schema: page.schema,
+      schema,
       mode: "export",
-      context: { pageId: page.id, formApiUrl: SITE_API },
+      context: { pageId: String(req.query.pageId ?? ""), formApiUrl: SITE_API },
     }),
   );
 
@@ -98,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${page.schema.title || page.name}</title>
+<title>${schema.title || page.name}</title>
 <style>${collectCss()}</style>
 </head>
 <body>

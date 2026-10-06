@@ -16,6 +16,7 @@ import { TriangleAlert } from "lucide-react";
 import { getPage } from "@/lib/api";
 import { saveNow } from "@/lib/editor-save";
 import { useEditorStore } from "@/lib/editor-store";
+import { useRequireAuth } from "@/components/auth/auth-provider";
 import { Canvas } from "./canvas";
 import { MaterialPanel } from "./material-panel";
 import { PropertyPanel } from "./property-panel";
@@ -28,6 +29,7 @@ function resolveIndex(nodes: NodeSchema[], overId: string): number {
 }
 
 export function EditorClient({ pageId }: { pageId: string }) {
+  const { loading: authLoading } = useRequireAuth();
   const load = useEditorStore((s) => s.load);
   const schema = useEditorStore((s) => s.schema);
   const dirty = useEditorStore((s) => s.dirty);
@@ -43,7 +45,7 @@ export function EditorClient({ pageId }: { pageId: string }) {
     (async () => {
       try {
         const page = await getPage(pageId);
-        if (!cancelled) load({ id: page.id, name: page.name, schema: page.schema });
+        if (!cancelled) load({ id: page.id, name: page.name, slug: page.slug, schema: page.schema });
       } catch (e) {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : "加载失败");
       } finally {
@@ -130,7 +132,7 @@ export function EditorClient({ pageId }: { pageId: string }) {
     );
   }
 
-  if (!ready) {
+  if (authLoading || !ready) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">
         <div className="relative h-10 w-10">

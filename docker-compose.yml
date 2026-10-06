@@ -35,6 +35,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lowcode}:${POSTGRES_PASSWORD:-lowcode123}@postgres:5432/${POSTGRES_DB:-lowcode}?schema=public
       REDIS_URL: redis://redis:6379
       PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:-lc-dev-secret-change-me}
     depends_on:
       postgres:
         condition: service_healthy

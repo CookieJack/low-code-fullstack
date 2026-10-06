@@ -49,6 +49,8 @@ import {
   unpublishPage,
 } from "@/lib/api";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { useAuth, useRequireAuth } from "@/components/auth/auth-provider";
+import { UserMenu } from "@/components/auth/user-menu";
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -115,6 +117,8 @@ function StatCard({
 }
 
 export default function DashboardPage() {
+  const { user, loading: authLoading } = useRequireAuth();
+  const { can } = useAuth();
   const [pages, setPages] = useState<PageMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -183,6 +187,28 @@ export default function DashboardPage() {
     submissions.length > 0 ? Object.keys(submissions[0].data ?? {}) : [];
   const publishedCount = pages.filter((p) => p.status === "published").length;
 
+  // 守卫校验中(未登录会被跳转),先展示骨架避免闪现内容
+  if (authLoading) {
+    return (
+      <div className="relative min-h-screen">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-indigo-500/10 via-indigo-500/[0.04] to-transparent" />
+        <div className="relative mx-auto max-w-6xl space-y-6 px-6 py-10">
+          <Skeleton className="h-11 w-64 rounded-xl" />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Skeleton className="h-[74px] rounded-xl" />
+            <Skeleton className="h-[74px] rounded-xl" />
+            <Skeleton className="h-[74px] rounded-xl" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-64 rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen">
       {/* 顶部品牌氛围光 */}
@@ -203,10 +229,13 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus />
-              新建页面
-            </Button>
+            {can("page:create") ? (
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus />
+                新建页面
+              </Button>
+            ) : null}
+            <UserMenu />
           </div>
         </header>
 
@@ -258,10 +287,12 @@ export default function DashboardPage() {
                 创建第一个页面，开始搭建你的官网
               </p>
             </div>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus />
-              新建页面
-            </Button>
+            {can("page:create") ? (
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus />
+                新建页面
+              </Button>
+            ) : null}
           </div>
         ) : (
           <>
@@ -312,13 +343,15 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="mt-4 flex items-center gap-2">
-                      <Button asChild size="sm" className="flex-1">
-                        <Link href={`/editor/${page.id}`}>
-                          <Pencil />
-                          编辑
-                        </Link>
-                      </Button>
-                      {page.status === "published" ? (
+                      {can("page:update") ? (
+                        <Button asChild size="sm" className="flex-1">
+                          <Link href={`/editor/${page.id}`}>
+                            <Pencil />
+                            编辑
+                          </Link>
+                        </Button>
+                      ) : null}
+                      {page.status === "published" && can("page:unpublish") ? (
                         <Button
                           size="sm"
                           variant="outline"
@@ -346,28 +379,34 @@ export default function DashboardPage() {
                             <Table2 />
                             提交数据
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={async () => {
-                              try {
-                                await duplicatePage(page.id);
-                                toast.success("已复制");
-                                void refresh();
-                              } catch (e) {
-                                toast.error(e instanceof Error ? e.message : "复制失败");
-                              }
-                            }}
-                          >
-                            <Copy />
-                            创建副本
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => setDeleteTarget(page)}
-                          >
-                            <Trash2 />
-                            删除
-                          </DropdownMenuItem>
+                          {can("page:create") ? (
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                try {
+                                  await duplicatePage(page.id);
+                                  toast.success("已复制");
+                                  void refresh();
+                                } catch (e) {
+                                  toast.error(e instanceof Error ? e.message : "复制失败");
+                                }
+                              }}
+                            >
+                              <Copy />
+                              创建副本
+                            </DropdownMenuItem>
+                          ) : null}
+                          {can("page:delete") ? (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => setDeleteTarget(page)}
+                              >
+                                <Trash2 />
+                                删除
+                              </DropdownMenuItem>
+                            </>
+                          ) : null}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

@@ -115,3 +115,104 @@ export const publishedPageDto = z.object({
   schema: pageSchemaSchema,
 });
 export type PublishedPage = z.infer<typeof publishedPageDto>;
+
+/* ------------------------------------------------------------------ */
+/* 角色与权限(RBAC)                                                    */
+/* ------------------------------------------------------------------ */
+
+export const roleSchema = z.enum(["admin", "editor", "viewer"]);
+export type Role = z.infer<typeof roleSchema>;
+
+export const PERMISSIONS = [
+  "page:read",
+  "page:create",
+  "page:update",
+  "page:delete",
+  "page:publish",
+  "page:unpublish",
+  "submission:read",
+  "user:read",
+  "user:create",
+  "user:update",
+  "user:delete",
+] as const;
+export type Permission = (typeof PERMISSIONS)[number];
+
+export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
+  admin: [...PERMISSIONS],
+  editor: [
+    "page:read",
+    "page:create",
+    "page:update",
+    "page:delete",
+    "page:publish",
+    "page:unpublish",
+    "submission:read",
+  ],
+  viewer: ["page:read", "submission:read"],
+};
+
+export const hasPermission = (role: Role, perm: Permission): boolean =>
+  ROLE_PERMISSIONS[role].includes(perm);
+
+export const ROLE_LABELS: Record<Role, string> = {
+  admin: "管理员",
+  editor: "编辑",
+  viewer: "访客",
+};
+
+/* ------------------------------------------------------------------ */
+/* 认证与用户管理契约                                                    */
+/* ------------------------------------------------------------------ */
+
+export const userDto = z.object({
+  id: z.string(),
+  username: z.string(),
+  name: z.string(),
+  role: roleSchema,
+  enabled: z.boolean(),
+  createdAt: z.string(),
+});
+export type UserDto = z.infer<typeof userDto>;
+
+export const loginInput = z.object({
+  username: z.string().min(1, "请输入用户名").max(50),
+  password: z.string().min(1, "请输入密码").max(100),
+});
+
+export const refreshInput = z.object({
+  refreshToken: z.string().min(1),
+});
+
+export const tokenResponseDto = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  user: userDto,
+});
+export type TokenResponse = z.infer<typeof tokenResponseDto>;
+
+export const createUserInput = z.object({
+  username: z
+    .string()
+    .min(2, "用户名至少 2 个字符")
+    .max(50)
+    .regex(/^[a-zA-Z0-9_-]+$/, "仅允许字母、数字、下划线和中划线"),
+  password: z.string().min(6, "密码至少 6 位").max(100),
+  name: z.string().max(50).default(""),
+  role: roleSchema.default("viewer"),
+});
+
+export const updateUserInput = z.object({
+  name: z.string().max(50).optional(),
+  role: roleSchema.optional(),
+  enabled: z.boolean().optional(),
+  password: z.string().min(6, "密码至少 6 位").max(100).optional(),
+});
+
+/** 静态导出输入:浏览器传入页面数据,服务端只做渲染(页面数据需鉴权获取) */
+export const exportPageInput = z.object({
+  name: z.string().min(1),
+  slug: z.string().nullable().default(null),
+  title: z.string().default(""),
+  schema: pageSchemaSchema,
+});

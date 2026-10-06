@@ -16,12 +16,14 @@ export const DEVICE_WIDTH: Record<Device, number> = {
 interface LoadPayload {
   id: string;
   name: string;
+  slug: string | null;
   schema: PageSchema;
 }
 
 interface EditorState {
   pageId: string | null;
   pageName: string;
+  pageSlug: string | null;
   schema: PageSchema;
   selectedId: string | null;
   past: PageSchema[];
@@ -58,6 +60,7 @@ const HISTORY_LIMIT = 100;
 export const useEditorStore = create<EditorState>((set, get) => ({
   pageId: null,
   pageName: "",
+  pageSlug: null,
   schema: { version: 1, title: "", nodes: [] },
   selectedId: null,
   past: [],
@@ -72,6 +75,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({
       pageId: page.id,
       pageName: page.name,
+      pageSlug: page.slug,
       schema: structuredClone(page.schema),
       selectedId: null,
       past: [],

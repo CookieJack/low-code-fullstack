@@ -14,8 +14,9 @@ import { db } from "../lib/db";
 import { parseBody, readJson } from "../lib/http";
 import { invalidatePublished, setPublishedCached } from "../lib/publish-cache";
 import { landingTemplate } from "../templates";
+import { requirePermission, type AuthEnv } from "../middleware/auth";
 
-export const pagesRoutes = new Hono();
+export const pagesRoutes = new Hono<AuthEnv>();
 
 const META_SELECT = {
   id: true,
@@ -48,7 +49,7 @@ function toDetail(page: {
 }
 
 /** 页面列表 */
-pagesRoutes.get("/", async (c) => {
+pagesRoutes.get("/", requirePermission("page:read"), async (c) => {
   const list = await db.page.findMany({
     orderBy: { updatedAt: "desc" },
     select: META_SELECT,
@@ -57,7 +58,7 @@ pagesRoutes.get("/", async (c) => {
 });
 
 /** 新建页面 */
-pagesRoutes.post("/", async (c) => {
+pagesRoutes.post("/", requirePermission("page:create"), async (c) => {
   const input = parseBody(createPageInput, await readJson(c));
   const schema: PageSchema =
     input.template === "landing"
@@ -74,14 +75,14 @@ pagesRoutes.post("/", async (c) => {
 });
 
 /** 页面详情 */
-pagesRoutes.get("/:id", async (c) => {
+pagesRoutes.get("/:id", requirePermission("page:read"), async (c) => {
   const page = await db.page.findUnique({ where: { id: c.req.param("id") } });
   if (!page) throw new HTTPException(404, { message: "页面不存在" });
   return c.json(toDetail(page));
 });
 
 /** 更新页面(草稿) */
-pagesRoutes.put("/:id", async (c) => {
+pagesRoutes.put("/:id", requirePermission("page:update"), async (c) => {
   const input = parseBody(updatePageInput, await readJson(c));
   const exists = await db.page.findUnique({
     where: { id: c.req.param("id") },
@@ -100,7 +101,7 @@ pagesRoutes.put("/:id", async (c) => {
 });
 
 /** 删除页面 */
-pagesRoutes.delete("/:id", async (c) => {
+pagesRoutes.delete("/:id", requirePermission("page:delete"), async (c) => {
   const page = await db.page.findUnique({
     where: { id: c.req.param("id") },
     select: { id: true, slug: true },
@@ -112,7 +113,7 @@ pagesRoutes.delete("/:id", async (c) => {
 });
 
 /** 复制页面 */
-pagesRoutes.post("/:id/duplicate", async (c) => {
+pagesRoutes.post("/:id/duplicate", requirePermission("page:create"), async (c) => {
   const source = await db.page.findUnique({ where: { id: c.req.param("id") } });
   if (!source) throw new HTTPException(404, { message: "页面不存在" });
   const copy = await db.page.create({
@@ -127,7 +128,7 @@ pagesRoutes.post("/:id/duplicate", async (c) => {
 });
 
 /** 发布:快照当前草稿 → publishedSchema,写 Redis 缓存 */
-pagesRoutes.post("/:id/publish", async (c) => {
+pagesRoutes.post("/:id/publish", requirePermission("page:publish"), async (c) => {
   const input = parseBody(publishInput, await readJson(c));
   const page = await db.page.findUnique({ where: { id: c.req.param("id") } });
   if (!page) throw new HTTPException(404, { message: "页面不存在" });
@@ -160,7 +161,7 @@ pagesRoutes.post("/:id/publish", async (c) => {
 });
 
 /** 下线发布 */
-pagesRoutes.post("/:id/unpublish", async (c) => {
+pagesRoutes.post("/:id/unpublish", requirePermission("page:unpublish"), async (c) => {
   const page = await db.page.findUnique({
     where: { id: c.req.param("id") },
     select: { id: true, slug: true },
@@ -175,7 +176,7 @@ pagesRoutes.post("/:id/unpublish", async (c) => {
 });
 
 /** 表单提交数据 */
-pagesRoutes.get("/:id/submissions", async (c) => {
+pagesRoutes.get("/:id/submissions", requirePermission("submission:read"), async (c) => {
   const exists = await db.page.findUnique({
     where: { id: c.req.param("id") },
     select: { id: true },

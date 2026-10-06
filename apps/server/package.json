@@ -16,6 +16,7 @@
     "@hono/node-server": "^1.13.0",
     "@lc/schema": "workspace:*",
     "@prisma/client": "^6.2.0",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.0",
     "hono": "^4.6.0",
     "ioredis": "^5.4.0",
@@ -23,9 +24,10 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.0.0",
-    "tsx": "^4.19.0",
     "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }
 }
