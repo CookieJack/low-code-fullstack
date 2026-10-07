@@ -5,27 +5,38 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronDown, ChevronUp, Copy, GripVertical, Inbox, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { getMaterial, type MaterialDef } from "@lc/materials";
+import { getMaterial } from "@lc/materials";
 import { Renderer } from "@lc/renderer";
 import type { NodeSchema } from "@lc/schema";
 import { cn } from "@lc/ui";
 import { API_BASE } from "@/lib/api";
 import { DEVICE_WIDTH, useEditorStore } from "@/lib/editor-store";
+import type { CanvasEmptyData, NodeDragData, ZoneDragData } from "@/lib/editor-dnd";
 
 function SortableNode({
   node,
   index,
   total,
+  containerId,
   children,
 }: {
   node: NodeSchema;
   index: number;
   total: number;
+  containerId: string | null;
   children: React.ReactNode;
 }) {
+  const def = getMaterial(node.type);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: node.id,
-    data: { kind: "node", id: node.id },
+    data: {
+      kind: "node",
+      id: node.id,
+      containerId,
+      index,
+      isContainer: def?.container ?? false,
+      childCount: node.children?.length ?? 0,
+    } satisfies NodeDragData,
   });
   const selected = useEditorStore((s) => s.selectedId === node.id);
   const previewMode = useEditorStore((s) => s.previewMode);
@@ -34,7 +45,6 @@ function SortableNode({
   const duplicateNode = useEditorStore((s) => s.duplicateNode);
   const moveNode = useEditorStore((s) => s.moveNode);
   const [hover, setHover] = useState(false);
-  const def = getMaterial(node.type);
 
   return (
     <div
@@ -83,7 +93,7 @@ function SortableNode({
             title="上移"
             disabled={index === 0}
             className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-30"
-            onClick={() => moveNode(index, index - 1)}
+            onClick={() => moveNode(containerId, index, index - 1)}
           >
             <ChevronUp className="h-3.5 w-3.5" />
           </button>
@@ -91,7 +101,7 @@ function SortableNode({
             title="下移"
             disabled={index === total - 1}
             className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-30"
-            onClick={() => moveNode(index, index + 1)}
+            onClick={() => moveNode(containerId, index, index + 1)}
           >
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
@@ -116,8 +126,34 @@ function SortableNode({
   );
 }
 
+/** 容器内容放置区:编辑器为每个容器物料注入,承担子块排序上下文与空态提示 */
+function ContainerZone({ node, children }: { node: NodeSchema; children: React.ReactNode }) {
+  const count = node.children?.length ?? 0;
+  const { setNodeRef, isOver } = useDroppable({
+    id: `zone:${node.id}`,
+    data: { kind: "zone", containerId: node.id, childCount: count } satisfies ZoneDragData,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ gap: "inherit" }}
+      className={cn(
+        "flex w-full flex-col rounded-xl transition",
+        count === 0 &&
+          "min-h-28 items-center justify-center border-2 border-dashed border-slate-300/80 text-sm text-slate-400",
+        isOver && "bg-primary/5 ring-2 ring-inset ring-primary/50",
+      )}
+    >
+      {count === 0 ? "从左侧拖入子区块,点击可添加到容器" : children}
+    </div>
+  );
+}
+
 function EmptyDropZone() {
-  const { setNodeRef, isOver } = useDroppable({ id: "canvas-empty" });
+  const { setNodeRef, isOver } = useDroppable({
+    id: "canvas-empty",
+    data: { kind: "canvas-empty" } satisfies CanvasEmptyData,
+  });
   return (
     <div ref={setNodeRef} className="flex h-[70vh] items-center justify-center p-8">
       <div
@@ -144,7 +180,7 @@ export function Canvas() {
   const previewMode = useEditorStore((s) => s.previewMode);
   const pageId = useEditorStore((s) => s.pageId);
 
-  const { setNodeRef, isOver: endOver } = useDroppable({ id: "canvas-end" });
+  const { setNodeRef, isOver: endOver } = useDroppable({ id: "canvas-end", data: { kind: "canvas-end" } });
   const nodes = schema.nodes;
 
   return (
@@ -171,10 +207,28 @@ export function Canvas() {
                 renderWrap={
                   previewMode
                     ? undefined
-                    : ({ node, index, total, children }) => (
-                        <SortableNode key={node.id} node={node} index={index} total={total}>
+                    : ({ node, index, total, containerId, children }) => (
+                        <SortableNode
+                          key={node.id}
+                          node={node}
+                          index={index}
+                          total={total}
+                          containerId={containerId}
+                        >
                           {children}
                         </SortableNode>
+                      )
+                }
+                renderChildren={
+                  previewMode
+                    ? undefined
+                    : ({ node, children }) => (
+                        <SortableContext
+                          items={(node.children ?? []).map((c) => c.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <ContainerZone node={node}>{children}</ContainerZone>
+                        </SortableContext>
                       )
                 }
               />

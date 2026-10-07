@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { NodeStyle, PropField } from "@lc/schema";
 
 /** 渲染上下文:发布页/导出时注入表单提交所需信息 */
@@ -17,6 +17,8 @@ export interface MaterialComponentProps {
   /** edit=画布内(交互降级) static=预览/发布 export=静态导出(无 JS 表单) */
   mode?: MaterialMode;
   context?: MaterialContext;
+  /** 仅容器物料:渲染器递归渲染的子节点列表 */
+  children?: ReactNode;
 }
 
 /** 物料定义:注册表的最小单元,新增物料 = 一个组件 + 一份定义 */
@@ -28,5 +30,7 @@ export interface MaterialDef {
   description?: string;
   defaultProps: Record<string, any>;
   propSchema: PropField[];
+  /** 容器物料:children 子节点由渲染器递归渲染(编辑器支持拖入/嵌套) */
+  container?: boolean;
   Component: ComponentType<MaterialComponentProps>;
 }

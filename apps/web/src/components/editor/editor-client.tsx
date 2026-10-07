@@ -11,22 +11,20 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { getMaterial } from "@lc/materials";
-import type { NodeSchema } from "@lc/schema";
 import { TriangleAlert } from "lucide-react";
 import { getPage } from "@/lib/api";
 import { saveNow } from "@/lib/editor-save";
 import { useEditorStore } from "@/lib/editor-store";
+import {
+  nestedCollisionDetection,
+  resolveDropTarget,
+  type DragData,
+} from "@/lib/editor-dnd";
 import { useRequireAuth } from "@/components/auth/auth-provider";
 import { Canvas } from "./canvas";
 import { MaterialPanel } from "./material-panel";
 import { PropertyPanel } from "./property-panel";
 import { Topbar } from "./topbar";
-
-function resolveIndex(nodes: NodeSchema[], overId: string): number {
-  if (overId === "canvas-end" || overId === "canvas-empty") return nodes.length;
-  const i = nodes.findIndex((n) => n.id === overId);
-  return i === -1 ? nodes.length : i;
-}
 
 export function EditorClient({ pageId }: { pageId: string }) {
   const { loading: authLoading } = useRequireAuth();
@@ -98,10 +96,10 @@ export function EditorClient({ pageId }: { pageId: string }) {
   }, []);
 
   const onDragStart = useCallback((event: DragStartEvent) => {
-    const data = event.active.data.current as { kind?: string; type?: string } | undefined;
+    const data = event.active.data.current as DragData | undefined;
     if (data?.kind === "material" && data.type) {
       setActiveLabel(getMaterial(data.type)?.title ?? "组件");
-    } else if (data?.kind === "node") {
+    } else {
       setActiveLabel("移动区块");
     }
   }, []);
@@ -111,16 +109,13 @@ export function EditorClient({ pageId }: { pageId: string }) {
     const { active, over } = event;
     if (!over) return;
     const store = useEditorStore.getState();
-    const nodes = store.schema.nodes;
-    const activeData = active.data.current as { kind?: string; type?: string } | undefined;
-    const overId = String(over.id);
+    const activeData = active.data.current as DragData | undefined;
+    const target = resolveDropTarget(store.schema.nodes, over);
 
     if (activeData?.kind === "material" && activeData.type) {
-      store.addNode(activeData.type, resolveIndex(nodes, overId));
+      store.addNode(activeData.type, target);
     } else if (activeData?.kind === "node") {
-      const fromIndex = nodes.findIndex((n) => n.id === active.id);
-      const toIndex = Math.min(resolveIndex(nodes, overId), nodes.length - 1);
-      if (fromIndex >= 0) store.moveNode(fromIndex, toIndex);
+      store.moveNodeTo(String(active.id), target);
     }
   }, []);
 
@@ -157,6 +152,7 @@ export function EditorClient({ pageId }: { pageId: string }) {
       <Topbar />
       <DndContext
         sensors={sensors}
+        collisionDetection={nestedCollisionDetection}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
         onDragCancel={() => setActiveLabel(null)}

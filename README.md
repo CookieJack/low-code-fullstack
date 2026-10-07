@@ -7,6 +7,7 @@
 - **登录鉴权 + 动态 RBAC**:JWT 双 token(access 2h + refresh 7 天轮换可撤销),角色存于数据库、可自定义(内置 `admin / editor / viewer` 三角色),权限点校验 + 前端按钮显隐与路由守卫;「用户管理」维护账号,「角色权限」页可视化勾选每个角色的权限点
 - **页面级协作权限**:页面可设「限制访问」并把任意用户加为该页编辑者/查看者,不受其全局角色限制
 - **可视化编辑器**:物料拖入画布(dnd-kit)、画布内拖拽排序、点击选中、属性面板按物料定义自动生成、区块样式(背景/内边距)覆盖
+- **容器嵌套**:「区块容器」物料可嵌套任意子区块,支持跨容器拖拽移动、大纲树展示层级结构;渲染器递归渲染子节点,发布/导出同样生效
 - **所见即所得**:编辑画布、发布页、静态导出共用同一 React 渲染器;物料基于容器查询,设备模拟(桌面/平板/手机)与真实响应一致
 - **编辑体验**:撤销/重做(Ctrl+Z / Ctrl+Shift+Z)、防抖 1.5s 自动保存、页面大纲树
 - **图片上传**:物料图片属性支持平台内直接上传,存储可选本地磁盘(默认,开箱即用)或 S3 兼容对象存储(阿里云 OSS / 腾讯云 COS / MinIO / AWS S3);无上传权限时仍可粘贴外部 URL
@@ -36,7 +37,7 @@ docker/           Dockerfiles + nginx 配置
 docker-compose.yml  postgres + redis + server + web + nginx
 ```
 
-**核心枢纽是物料注册表**:每个物料 = `{ type, title, icon, defaultProps, propSchema, Component }`。渲染器按 type 查表渲染;属性面板按 propSchema 自动生成控件。新增物料只需一个组件 + 一份定义。
+**核心枢纽是物料注册表**:每个物料 = `{ type, title, icon, defaultProps, propSchema, Component }`(容器物料多声明 `container: true`,子节点存于节点的 `children` 中,渲染器递归渲染为组件的 `children`)。渲染器按 type 查表渲染;属性面板按 propSchema 自动生成控件。新增物料只需一个组件 + 一份定义。
 
 **层间依赖**:`web、server → schema`;`web → materials、renderer、ui`;`renderer → materials`。物料样式独立于 shadcn,保证发布的网站是"真实网站"的观感。
 
@@ -122,8 +123,8 @@ docker compose up -d --build
 
 以「价格表」为例:
 
-1. `packages/materials/src/blocks/Pricing.tsx` — 组件:props 解构 + 兜底默认值,外层 `<section className="@container w-full">`(容器查询保证画布设备模拟精确);有状态交互的文件需加 `"use client"`
-2. `packages/materials/src/blocks/pricing-def.ts` — 定义:defaultProps(首拖即好看)+ propSchema(支持的控件:`text` `textarea` `url` `image` `color` `number` `boolean` `select` `array` 嵌套字段)
+1. `packages/materials/src/blocks/Pricing.tsx` — 组件:props 解构 + 兜底默认值,外层 `<section className="@container w-full">`(容器查询保证画布设备模拟精确);有状态交互的文件需加 `"use client"`,且定义(def)放独立文件(如 `carousel-def.ts`)
+2. `packages/materials/src/blocks/pricing-def.ts` — 定义:defaultProps(首拖即好看)+ propSchema(支持的控件:`text` `textarea` `url` `image` `color` `number` `boolean` `select` `array` 嵌套字段);若是容器物料(如「区块容器」)再声明 `container: true`,子节点由渲染器递归渲染并作为 `children` 传入组件
 3. `packages/materials/src/index.ts` — 注册到 `materials` 数组
 
 无需改动编辑器/渲染器/属性面板,物料自动出现在左侧面板并全部可用。
@@ -171,5 +172,4 @@ GET    /api/healthz            健康检查(db/redis)(匿名)
 
 ## 后续可扩展
 
-- 更多物料(轮播、视频、价格表、FAQ 等)、区块容器嵌套
 - 主题色全局配置、自定义域名绑定

@@ -4,6 +4,15 @@ import { create } from "zustand";
 import { nanoid } from "nanoid";
 import type { NodeSchema, PageSchema } from "@lc/schema";
 import { getMaterial } from "@lc/materials";
+import {
+  cloneWithNewIds,
+  ensureChildList,
+  findNode,
+  findNodeLoc,
+  isInsideSubtree,
+  listByContainer,
+  type DropTarget,
+} from "./tree";
 
 export type Device = "desktop" | "tablet" | "mobile";
 
@@ -45,13 +54,17 @@ interface EditorState {
 
   /** 所有变更的唯一入口:克隆 → 变更 → 入历史栈 → 标脏 */
   apply: (fn: (draft: PageSchema) => void) => void;
-  addNode: (type: string, index?: number) => string;
+  /** 新增物料:target 缺省 = 根末尾 */
+  addNode: (type: string, target?: DropTarget) => string;
   updateProps: (id: string, key: string, value: unknown) => void;
   updateStyle: (id: string, patch: Partial<NonNullable<NodeSchema["style"]>>) => void;
   updateTitle: (title: string) => void;
   removeNode: (id: string) => void;
   duplicateNode: (id: string) => void;
-  moveNode: (fromIndex: number, toIndex: number) => void;
+  /** 同一容器内上移/下移 */
+  moveNode: (containerId: string | null, fromIndex: number, toIndex: number) => void;
+  /** 移动节点(支持跨容器);目标落在自身子树内时忽略 */
+  moveNodeTo: (id: string, target: DropTarget) => void;
 
   undo: () => void;
   redo: () => void;
@@ -108,18 +121,23 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 
-  addNode: (type, index) => {
+  addNode: (type, target) => {
     const def = getMaterial(type);
     if (!def) return "";
+    const containerId = target?.containerId ?? null;
+    if (containerId !== null && !findNode(get().schema.nodes, containerId)) return "";
     const node: NodeSchema = {
       id: nanoid(8),
       type,
       props: structuredClone(def.defaultProps),
     };
-    const nodes = get().schema.nodes;
-    const at = index === undefined ? nodes.length : Math.max(0, Math.min(index, nodes.length));
     get().apply((draft) => {
-      draft.nodes.splice(at, 0, node);
+      const list = ensureChildList(draft.nodes, containerId)!;
+      const at =
+        target === undefined
+          ? list.length
+          : Math.max(0, Math.min(target.index, list.length));
+      list.splice(at, 0, node);
     });
     set({ selectedId: node.id });
     return node.id;
@@ -127,13 +145,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   updateProps: (id, key, value) =>
     get().apply((draft) => {
-      const node = draft.nodes.find((n) => n.id === id);
+      const node = findNode(draft.nodes, id);
       if (node) node.props = { ...node.props, [key]: value };
     }),
 
   updateStyle: (id, patch) =>
     get().apply((draft) => {
-      const node = draft.nodes.find((n) => n.id === id);
+      const node = findNode(draft.nodes, id);
       if (node) node.style = { ...node.style, ...patch };
     }),
 
@@ -145,32 +163,72 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   removeNode: (id) => {
     const { selectedId } = get();
     get().apply((draft) => {
-      draft.nodes = draft.nodes.filter((n) => n.id !== id);
+      const loc = findNodeLoc(draft.nodes, id);
+      if (loc) loc.list.splice(loc.index, 1);
     });
     if (selectedId === id) set({ selectedId: null });
   },
 
   duplicateNode: (id) => {
-    const node = get().schema.nodes.find((n) => n.id === id);
-    if (!node) return;
-    const copy: NodeSchema = {
-      ...structuredClone(node),
-      id: nanoid(8),
-    };
-    const index = get().schema.nodes.findIndex((n) => n.id === id);
+    const loc = findNodeLoc(get().schema.nodes, id);
+    if (!loc) return;
+    const copy = cloneWithNewIds(loc.node);
     get().apply((draft) => {
-      draft.nodes.splice(index + 1, 0, copy);
+      const target = findNodeLoc(draft.nodes, id);
+      if (!target) return;
+      target.list.splice(target.index + 1, 0, copy);
     });
     set({ selectedId: copy.id });
   },
 
-  moveNode: (fromIndex, toIndex) => {
-    const nodes = get().schema.nodes;
+  moveNode: (containerId, fromIndex, toIndex) => {
+    const list = listByContainer(get().schema.nodes, containerId);
+    if (!list) return;
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
-    if (fromIndex >= nodes.length || toIndex >= nodes.length) return;
+    if (fromIndex >= list.length || toIndex >= list.length) return;
     get().apply((draft) => {
-      const [moved] = draft.nodes.splice(fromIndex, 1);
-      draft.nodes.splice(toIndex, 0, moved);
+      const l = ensureChildList(draft.nodes, containerId)!;
+      const [moved] = l.splice(fromIndex, 1);
+      l.splice(toIndex, 0, moved);
+    });
+  },
+
+  moveNodeTo: (id, target) => {
+    const { nodes } = get().schema;
+    // 目标容器不能是自己或自己的子树
+    if (
+      target.containerId !== null &&
+      (target.containerId === id || isInsideSubtree(nodes, id, target.containerId))
+    ) {
+      return;
+    }
+    const src = findNodeLoc(nodes, id);
+    if (!src) return;
+    if ((src.containerId ?? null) === (target.containerId ?? null)) {
+      let to = Math.max(0, Math.min(target.index, src.list.length));
+      if (src.index < to) to -= 1; // 先移除再插入
+      if (to === src.index) return;
+    } else if (
+      target.containerId !== null &&
+      !findNode(nodes, target.containerId)
+    ) {
+      return;
+    }
+    get().apply((draft) => {
+      const srcLoc = findNodeLoc(draft.nodes, id);
+      if (!srcLoc) return;
+      if ((srcLoc.containerId ?? null) === (target.containerId ?? null)) {
+        let to = Math.max(0, Math.min(target.index, srcLoc.list.length));
+        if (srcLoc.index < to) to -= 1;
+        if (to === srcLoc.index) return;
+        const [moved] = srcLoc.list.splice(srcLoc.index, 1);
+        srcLoc.list.splice(to, 0, moved);
+      } else {
+        const dst = ensureChildList(draft.nodes, target.containerId);
+        if (!dst) return;
+        const [moved] = srcLoc.list.splice(srcLoc.index, 1);
+        dst.splice(Math.max(0, Math.min(target.index, dst.length)), 0, moved);
+      }
     });
   },
 
@@ -201,3 +259,5 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   markSaved: () => set({ dirty: false, saving: false, lastSavedAt: Date.now() }),
   setSaving: (saving) => set({ saving }),
 }));
+
+export { findNode };

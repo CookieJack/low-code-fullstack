@@ -17,6 +17,7 @@ import {
   Textarea,
 } from "@lc/ui";
 import { useEditorStore } from "@/lib/editor-store";
+import { findNode } from "@/lib/tree";
 import { ColorField } from "./color-field";
 import { ImageField } from "./image-field";
 
@@ -205,7 +206,7 @@ function ArrayEditor({
 }
 
 function StyleSection({ nodeId }: { nodeId: string }) {
-  const node = useEditorStore((s) => s.schema.nodes.find((n) => n.id === nodeId));
+  const node = useEditorStore((s) => findNode(s.schema.nodes, nodeId));
   const updateStyle = useEditorStore((s) => s.updateStyle);
   if (!node) return null;
   const style = node.style ?? {};
@@ -271,8 +272,7 @@ function StyleSection({ nodeId }: { nodeId: string }) {
 }
 
 export function PropertyPanel() {
-  const selectedId = useEditorStore((s) => s.selectedId);
-  const node = useEditorStore((s) => s.schema.nodes.find((n) => n.id === s.selectedId));
+  const node = useEditorStore((s) => findNode(s.schema.nodes, s.selectedId));
   const schema = useEditorStore((s) => s.schema);
   const updateProps = useEditorStore((s) => s.updateProps);
   const updateTitle = useEditorStore((s) => s.updateTitle);

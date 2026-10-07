@@ -12,12 +12,36 @@ export const nodeStyleSchema = z
   })
   .strict();
 
-export const nodeSchema = z.object({
-  id: z.string().min(1),
-  type: z.string().min(1),
-  props: z.record(z.string(), z.unknown()).default({}),
-  style: nodeStyleSchema.optional(),
-});
+/**
+ * 页面节点树:容器物料(type 为 container 类)通过 children 嵌套子节点。
+ * TS 类型手写(递归引用无法推断),schema 用 z.lazy 递归校验;
+ * children 可选 —— 旧数据没有该字段,读取后按无子节点处理。
+ */
+export interface NodeStyle {
+  paddingTop?: string;
+  paddingBottom?: string;
+  background?: string;
+}
+
+export interface NodeSchema {
+  id: string;
+  type: string;
+  props: Record<string, unknown>;
+  style?: NodeStyle;
+  children?: NodeSchema[];
+}
+
+const nodeSchemaInner: z.ZodType<NodeSchema> = z.lazy(() =>
+  z.object({
+    id: z.string().min(1),
+    type: z.string().min(1),
+    props: z.record(z.string(), z.unknown()).default({}),
+    style: nodeStyleSchema.optional(),
+    children: z.array(nodeSchemaInner).optional(),
+  }),
+);
+
+export const nodeSchema = nodeSchemaInner;
 
 export const pageSchemaSchema = z.object({
   version: z.literal(1),
@@ -25,8 +49,6 @@ export const pageSchemaSchema = z.object({
   nodes: z.array(nodeSchema).default([]),
 });
 
-export type NodeStyle = z.infer<typeof nodeStyleSchema>;
-export type NodeSchema = z.infer<typeof nodeSchema>;
 export type PageSchema = z.infer<typeof pageSchemaSchema>;
 
 export const createEmptyPageSchema = (title = ""): PageSchema => ({
