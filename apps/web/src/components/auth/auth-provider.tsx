@@ -90,7 +90,7 @@ export function useRequireAuth() {
     // 依赖 user:初始化完成或登出后 user 变为 null 都会触发跳转
     if (loading || user) return;
     clearAuth();
-    router.replace(`/login?redirect=${encodeURIComponent(pathname ?? "/")}`);
+    router.replace(`/dashboard/login?redirect=${encodeURIComponent(pathname ?? "/dashboard")}`);
   }, [loading, user, router, pathname]);
 
   return { user, loading: loading || !user };

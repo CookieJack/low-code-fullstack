@@ -137,7 +137,7 @@ export function EditorClient({ pageId }: { pageId: string }) {
           <p className="font-semibold">页面加载失败</p>
           <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
         </div>
-        <a href="/" className="text-sm font-medium text-primary hover:underline">
+        <a href="/dashboard" className="text-sm font-medium text-primary hover:underline">
           返回页面列表
         </a>
       </div>

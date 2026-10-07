@@ -1,6 +1,6 @@
 # 低代码可视化建站平台
 
-拖拽生成、一键发布官网页面的低代码平台。三栏可视化编辑器(物料库 / 画布 / 属性面板),页面以 JSON Schema 持久化,支持平台托管发布(`/p/{slug}` 直接访问)与静态 HTML 导出(任意部署),内置联系表单线索收集。
+拖拽生成、一键发布官网页面的低代码平台。三栏可视化编辑器(物料库 / 画布 / 属性面板),页面以 JSON Schema 持久化,支持平台托管发布(`/dashboard` 后台 + `/{slug}` 直接访问)与静态 HTML 导出(任意部署),内置联系表单线索收集。
 
 ## 功能
 
@@ -13,7 +13,7 @@
 - **图片上传**:物料图片属性支持平台内直接上传,存储可选本地磁盘(默认,开箱即用)或 S3 兼容对象存储(阿里云 OSS / 腾讯云 COS / MinIO / AWS S3);无上传权限时仍可粘贴外部 URL
 - **主题色全局配置**:「站点设置」配置品牌主色,自动推导完整深浅色阶;编辑器画布、发布页、静态导出 HTML 整体换肤(渐变按钮/标题同步)
 - **自定义域名绑定**:页面可绑定自定义域名(需 `site:domain` 权限),域名解析到平台后访问即出该页发布内容,平台自身路径不受影响
-- **发布**:发布快照 + 可自定义 slug,`/p/{slug}` SSR 直出(SEO title),Redis 缓存加速;支持下线与重新发布
+- **发布**:发布快照 + 可自定义 slug,`/{slug}` 挂根路径 SSR 直出(SEO title),Redis 缓存加速;slug 为 `home` 的页面作为站点首页(`/` 直达);`dashboard` 等为系统保留路径;支持下线与重新发布
 - **表单收集**:联系表单提交入库(带 IP 限流),后台查看提交数据
 - **静态导出**:自包含单文件 HTML(内联 CSS + 表单提交脚本),可部署到任意静态服务器
 - **多页面管理**:新建(空白/官网落地页模板)、复制、删除、下线
@@ -25,12 +25,12 @@ pnpm monorepo:
 ```
 apps/
   web/            Next.js 15 (App Router) + Tailwind v4 + shadcn/ui
-                  ├─ /                    页面管理
-                  ├─ /editor/[pageId]     三栏编辑器
-                  ├─ /p/[slug]            发布页 SSR
-                  ├─ /settings            站点设置(主题色)
+                  ├─ /                    平台根路径 → 已发布首页(slug 为 home;未发布时显示引导页)
+                  ├─ /dashboard           后台:页面管理(含 /dashboard/login、users、roles、settings)
+                  ├─ /dashboard/editor/[pageId]  三栏编辑器
+                  ├─ /[slug]              发布页 SSR(占根路径)
                   ├─ pages/api/export     静态导出(需 react-dom/server)
-                  └─ middleware           自定义域名 → /p/{slug} 重写
+                  └─ middleware           自定义域名 → /{slug} 重写
   server/         Hono + Prisma + PostgreSQL + Redis
 packages/
   schema/         @lc/schema 页面协议(zod)+ API 契约 + 属性控件定义 + 主题调色板
@@ -62,7 +62,7 @@ docker-compose.yml  postgres + redis + server + web + nginx
 
 ### 自定义域名绑定
 
-页面「··· → 域名绑定」(需 `site:domain` 权限)把域名(全局唯一)绑定到该页:把域名 A 记录 / CNAME 解析到平台服务器后,访问该域名的根路径由 web `middleware` 重写为 `/p/{slug}`(地址栏保持自定义域名),`/login` `/editor` 等平台路径与 API 不受影响;页面下线或解绑立即失效。域名 → slug 解析走 `GET /api/domains/resolve`(匿名),Redis 缓存 60s(绑定/解绑/下线时失效)。nginx 配置为 `server_name _` 通配,自定义域名指向服务器即可,无需改配置。
+页面「··· → 域名绑定」(需 `site:domain` 权限)把域名(全局唯一)绑定到该页:把域名 A 记录 / CNAME 解析到平台服务器后,访问该域名的根路径由 web `middleware` 重写为 `/{slug}`(地址栏保持自定义域名),`/dashboard` 等平台路径与 API 不受影响;页面下线或解绑立即失效。域名 → slug 解析走 `GET /api/domains/resolve`(匿名),Redis 缓存 60s(绑定/解绑/下线时失效)。nginx 配置为 `server_name _` 通配,自定义域名指向服务器即可,无需改配置。
 
 ### 图片存储
 
@@ -107,7 +107,7 @@ pnpm --filter server seed   # 可选:创建管理员 admin / admin123 + 演示�
 pnpm dev               # web http://localhost:3000  server http://localhost:3001
 ```
 
-打开 http://localhost:3000 会先进入登录页,默认账号 `admin / admin123`(请在「用户管理」中尽快修改密码)。
+打开 http://localhost:3000 会重定向到后台 `/dashboard`(未登录先跳 `/dashboard/login`),默认账号 `admin / admin123`(请在「用户管理」中尽快修改密码)。
 
 ### 环境变量
 
@@ -126,12 +126,12 @@ docker compose up -d --build
 
 ## 使用流程
 
-1. 打开首页 → 登录(默认 admin / admin123)
+1. 打开 http://localhost:3000 → 自动进入后台 `/dashboard` 登录(默认 admin / admin123)
 2. 「新建页面」→ 选官网落地页模板或空白
 3. 编辑器:左侧拖入物料(或点击添加)→ 画布点击选中 → 右侧改属性 → 顶部预览/切换设备宽度
-4. 「发布」→ 设置 slug → 获得 `/p/{slug}` 访问链接(匿名可访问);再次发布更新线上内容
+4. 「发布」→ 设置 slug → 获得 `/{slug}` 访问链接(匿名可访问);再次发布更新线上内容
 5. 「导出 HTML」→ 下载自包含静态文件;表单提交会回传平台 API(需保证 `SITE_API_URL` 可达)
-6. 首页「··· → 提交数据」查看联系表单收集的线索;「··· → 协作成员」可把任意用户加为该页编辑者/查看者并开启「限制访问」;「··· → 域名绑定」把自定义域名指向该页(解析到平台后访问域名即出发布内容)
+6. 后台首页「··· → 提交数据」查看联系表单收集的线索;「··· → 协作成员」可把任意用户加为该页编辑者/查看者并开启「限制访问」;「··· → 域名绑定」把自定义域名指向该页(解析到平台后访问域名即出发布内容)
 7. 右上角用户菜单 → 「用户管理」维护账号;「角色权限」新建自定义角色并勾选权限点;「站点设置」配置全局主题色
 
 ## 新增物料指南

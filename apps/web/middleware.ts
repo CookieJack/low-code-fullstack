@@ -2,11 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /**
  * 自定义域名出站:请求 Host 命中已绑定的自定义域名时,把站点根路径
- * 重写为该页面的发布页 /p/{slug}(浏览器地址栏保持自定义域名)。
+ * 重写为该页面的发布页 /{slug}(浏览器地址栏保持自定义域名)。
  *
- * 平台自身路径(/login /editor /users 等)不受影响;域名解析由 server
- * 的匿名接口 /api/domains/resolve 提供(Redis 缓存),middleware 侧再做
- * 一层短 TTL 内存缓存(含负缓存)避免高频回源。
+ * 平台自身路径(/dashboard /dashboard/login /dashboard/editor 等)不受影响;
+ * 域名解析由 server 的匿名接口 /api/domains/resolve 提供(Redis 缓存),
+ * middleware 侧再做一层短 TTL 内存缓存(含负缓存)避免高频回源。
  */
 
 const RESOLVE_TTL_MS = 30_000;
@@ -46,7 +46,7 @@ export async function middleware(req: NextRequest) {
   }
 
   if (!slug) return NextResponse.next();
-  return NextResponse.rewrite(new URL(`/p/${slug}`, req.url));
+  return NextResponse.rewrite(new URL(`/${slug}`, req.url));
 }
 
 export const config = {

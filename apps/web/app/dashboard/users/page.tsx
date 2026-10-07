@@ -70,10 +70,10 @@ export default function UsersPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<UserDto | null>(null);
 
-  // 无 user:read 权限,送回首页
+  // 无 user:read 权限,送回后台首页
   useEffect(() => {
     if (!authLoading && user && !can("user:read")) {
-      router.replace("/");
+      router.replace("/dashboard");
     }
   }, [authLoading, user, can, router]);
 
@@ -172,7 +172,7 @@ export default function UsersPage() {
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button asChild size="icon" variant="ghost" title="返回页面列表">
-              <a href="/">
+              <a href="/dashboard">
                 <ArrowLeft />
               </a>
             </Button>

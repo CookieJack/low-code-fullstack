@@ -39,7 +39,7 @@ export function UserMenu() {
         <DropdownMenuSeparator />
         {can("user:read") ? (
           <DropdownMenuItem asChild>
-            <a href="/users">
+            <a href="/dashboard/users">
               <Users />
               用户管理
             </a>
@@ -47,7 +47,7 @@ export function UserMenu() {
         ) : null}
         {can("site:settings") ? (
           <DropdownMenuItem asChild>
-            <a href="/settings">
+            <a href="/dashboard/settings">
               <Palette />
               站点设置
             </a>
@@ -55,7 +55,7 @@ export function UserMenu() {
         ) : null}
         {can("role:read") ? (
           <DropdownMenuItem asChild>
-            <a href="/roles">
+            <a href="/dashboard/roles">
               <KeyRound />
               角色权限
             </a>

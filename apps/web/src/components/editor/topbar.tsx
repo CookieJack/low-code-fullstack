@@ -121,13 +121,13 @@ function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
               <DialogDescription>你的页面已经上线,可以把链接分享给任何人</DialogDescription>
             </DialogHeader>
             <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2.5">
-              <code className="flex-1 truncate text-sm">/p/{result.slug}</code>
+              <code className="flex-1 truncate text-sm">/{result.slug}</code>
               <Button
                 size="icon"
                 variant="ghost"
                 title="复制链接"
                 onClick={() => {
-                  void navigator.clipboard.writeText(`${window.location.origin}/p/${result.slug}`);
+                  void navigator.clipboard.writeText(`${window.location.origin}/${result.slug}`);
                   toast.success("链接已复制");
                 }}
               >
@@ -156,7 +156,7 @@ function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             <div className="space-y-1.5">
               <Label htmlFor="publish-slug">访问路径</Label>
               <div className="flex items-center gap-2">
-                <span className="shrink-0 text-sm text-muted-foreground">/p/</span>
+                <span className="shrink-0 text-sm text-muted-foreground">/</span>
                 <Input
                   id="publish-slug"
                   value={effectiveSlug}
@@ -164,7 +164,9 @@ function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                   placeholder="my-page"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">仅支持小写字母、数字和中划线</p>
+              <p className="text-xs text-muted-foreground">
+                仅支持小写字母、数字和中划线;slug 为 home 的页面将作为站点首页(/ 直接访问)
+              </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -213,7 +215,7 @@ export function Topbar() {
         <Globe className="h-4 w-4 text-white" />
       </div>
       <Button asChild size="icon" variant="ghost" title="返回页面列表">
-        <Link href="/">
+        <Link href="/dashboard">
           <ArrowLeft />
         </Link>
       </Button>

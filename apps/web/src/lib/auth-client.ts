@@ -43,11 +43,11 @@ export function clearAuth(): void {
 /** 会话过期时跳登录页,登录后回跳原地址 */
 export function redirectToLogin(): void {
   if (typeof window === "undefined") return;
-  if (window.location.pathname.startsWith("/login")) return;
+  if (window.location.pathname.startsWith("/dashboard/login")) return;
   const redirect = encodeURIComponent(
     window.location.pathname + window.location.search,
   );
-  window.location.href = `/login?redirect=${redirect}`;
+  window.location.href = `/dashboard/login?redirect=${redirect}`;
 }
 
 /* ---------------- 以下接口使用裸 fetch,避免与 api.ts 的 401 拦截互相触发 ---------------- */

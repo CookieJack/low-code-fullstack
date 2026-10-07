@@ -16,7 +16,7 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const redirect = params?.get("redirect") || "/";
+  const redirect = params?.get("redirect") || "/dashboard";
 
   // 已登录直接离开登录页
   useEffect(() => {

@@ -28,6 +28,9 @@ import {
 
 export const pagesRoutes = new Hono<AuthEnv>();
 
+/** 发布页占根路径(/{slug}),这些 slug 会被 web 端静态路由/框架路径遮蔽,不允许占用 */
+const RESERVED_SLUGS = ["dashboard", "api", "_next", "favicon.ico"] as const;
+
 const META_SELECT = {
   id: true,
   name: true,
@@ -196,9 +199,12 @@ pagesRoutes.post("/:id/publish", async (c) => {
   }
 
   const input = parseBody(publishInput, await readJson(c));
+  if ((RESERVED_SLUGS as readonly string[]).includes(input.slug)) {
+    throw new HTTPException(409, { message: `路径 /${input.slug} 为系统保留,请换一个路径` });
+  }
   const clash = await db.page.findUnique({ where: { slug: input.slug } });
   if (clash && clash.id !== page.id) {
-    throw new HTTPException(409, { message: `路径 /p/${input.slug} 已被其他页面占用` });
+    throw new HTTPException(409, { message: `路径 /${input.slug} 已被其他页面占用` });
   }
 
   const publishedSchema = page.schema as object;
@@ -220,7 +226,7 @@ pagesRoutes.post("/:id/publish", async (c) => {
   await invalidatePublished(page.slug);
   await setPublishedCached(input.slug, data);
 
-  return c.json({ ok: true, slug: input.slug, url: `/p/${input.slug}` });
+  return c.json({ ok: true, slug: input.slug, url: `/${input.slug}` });
 });
 
 /** 下线发布:全局 page:unpublish,或对该页拥有编辑级协作权限 */
