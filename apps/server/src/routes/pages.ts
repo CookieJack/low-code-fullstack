@@ -6,6 +6,7 @@ import {
   updatePageInput,
   publishInput,
   upsertPageMemberInput,
+  bindPageDomainInput,
   pageSchemaSchema,
   createEmptyPageSchema,
   type PageSchema,
@@ -14,6 +15,7 @@ import {
 import { db } from "../lib/db";
 import { parseBody, readJson } from "../lib/http";
 import { invalidatePublished, setPublishedCached } from "../lib/publish-cache";
+import { invalidateDomain } from "../lib/domain-cache";
 import { landingTemplate } from "../templates";
 import { requirePermission, type AuthEnv } from "../middleware/auth";
 import {
@@ -311,6 +313,69 @@ pagesRoutes.delete("/:id/members/:userId", requirePermission("page:share"), asyn
   await db.pageMember.deleteMany({
     where: { pageId: page.id, userId: c.req.param("userId") },
   });
+  return c.json({ ok: true });
+});
+
+/* ------------------------------------------------------------------ */
+/* 自定义域名绑定(需全局 site:domain)                                   */
+/* ------------------------------------------------------------------ */
+
+const DOMAIN_SELECT = {
+  id: true,
+  domain: true,
+  createdAt: true,
+} as const;
+
+const domainToDto = (d: { id: string; domain: string; createdAt: Date }) => ({
+  id: d.id,
+  domain: d.domain,
+  createdAt: d.createdAt.toISOString(),
+});
+
+/** 域名绑定列表 */
+pagesRoutes.get("/:id/domains", requirePermission("site:domain"), async (c) => {
+  const { page, access } = await resolvePageAccess(c.get("authUser"), c.req.param("id"));
+  if (access === "none") throw new HTTPException(404, { message: "页面不存在" });
+
+  const domains = await db.pageDomain.findMany({
+    where: { pageId: page.id },
+    orderBy: { createdAt: "asc" },
+    select: DOMAIN_SELECT,
+  });
+  return c.json(domains.map(domainToDto));
+});
+
+/** 绑定域名(一个域名全局只能绑定一个页面) */
+pagesRoutes.post("/:id/domains", requirePermission("site:domain"), async (c) => {
+  const { page, access } = await resolvePageAccess(c.get("authUser"), c.req.param("id"));
+  if (access === "none") throw new HTTPException(404, { message: "页面不存在" });
+
+  const input = parseBody(bindPageDomainInput, await readJson(c));
+  const clash = await db.pageDomain.findUnique({ where: { domain: input.domain } });
+  if (clash) {
+    throw new HTTPException(409, { message: `域名 ${input.domain} 已绑定到其他页面` });
+  }
+
+  const binding = await db.pageDomain.create({
+    data: { domain: input.domain, pageId: page.id },
+    select: DOMAIN_SELECT,
+  });
+  await invalidateDomain(input.domain);
+  return c.json(domainToDto(binding), 201);
+});
+
+/** 解绑域名 */
+pagesRoutes.delete("/:id/domains/:domainId", requirePermission("site:domain"), async (c) => {
+  const { page, access } = await resolvePageAccess(c.get("authUser"), c.req.param("id"));
+  if (access === "none") throw new HTTPException(404, { message: "页面不存在" });
+
+  const binding = await db.pageDomain.findFirst({
+    where: { id: c.req.param("domainId"), pageId: page.id },
+    select: { id: true, domain: true },
+  });
+  if (!binding) throw new HTTPException(404, { message: "绑定不存在" });
+  await db.pageDomain.delete({ where: { id: binding.id } });
+  await invalidateDomain(binding.domain);
   return c.json({ ok: true });
 });
 

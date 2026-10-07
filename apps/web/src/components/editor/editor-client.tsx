@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { getMaterial } from "@lc/materials";
 import { TriangleAlert } from "lucide-react";
-import { getPage } from "@/lib/api";
+import { getPage, getSiteSettings } from "@/lib/api";
 import { saveNow } from "@/lib/editor-save";
 import { useEditorStore } from "@/lib/editor-store";
 import {
@@ -36,6 +36,8 @@ export function EditorClient({ pageId }: { pageId: string }) {
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
+  // 站点主题色:画布预览与发布页观感一致(失败按默认品牌色)
+  const [themePrimary, setThemePrimary] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -43,7 +45,13 @@ export function EditorClient({ pageId }: { pageId: string }) {
     let cancelled = false;
     (async () => {
       try {
-        const page = await getPage(pageId);
+        const [page] = await Promise.all([
+          getPage(pageId),
+          // 设置接口失败不影响编辑器打开,仅回退默认品牌色
+          getSiteSettings()
+            .then((s) => setThemePrimary(s.themePrimary))
+            .catch(() => {}),
+        ]);
         if (!cancelled) {
           load({
             id: page.id,
@@ -159,7 +167,7 @@ export function EditorClient({ pageId }: { pageId: string }) {
       >
         <div className="flex min-h-0 flex-1">
           {!previewMode && access !== "viewer" && <MaterialPanel />}
-          <Canvas />
+          <Canvas themePrimary={themePrimary} />
           {!previewMode && access !== "viewer" && <PropertyPanel />}
         </div>
         <DragOverlay>{activeLabel ? (

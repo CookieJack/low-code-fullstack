@@ -11,6 +11,8 @@
 - **所见即所得**:编辑画布、发布页、静态导出共用同一 React 渲染器;物料基于容器查询,设备模拟(桌面/平板/手机)与真实响应一致
 - **编辑体验**:撤销/重做(Ctrl+Z / Ctrl+Shift+Z)、防抖 1.5s 自动保存、页面大纲树
 - **图片上传**:物料图片属性支持平台内直接上传,存储可选本地磁盘(默认,开箱即用)或 S3 兼容对象存储(阿里云 OSS / 腾讯云 COS / MinIO / AWS S3);无上传权限时仍可粘贴外部 URL
+- **主题色全局配置**:「站点设置」配置品牌主色,自动推导完整深浅色阶;编辑器画布、发布页、静态导出 HTML 整体换肤(渐变按钮/标题同步)
+- **自定义域名绑定**:页面可绑定自定义域名(需 `site:domain` 权限),域名解析到平台后访问即出该页发布内容,平台自身路径不受影响
 - **发布**:发布快照 + 可自定义 slug,`/p/{slug}` SSR 直出(SEO title),Redis 缓存加速;支持下线与重新发布
 - **表单收集**:联系表单提交入库(带 IP 限流),后台查看提交数据
 - **静态导出**:自包含单文件 HTML(内联 CSS + 表单提交脚本),可部署到任意静态服务器
@@ -26,10 +28,12 @@ apps/
                   ├─ /                    页面管理
                   ├─ /editor/[pageId]     三栏编辑器
                   ├─ /p/[slug]            发布页 SSR
-                  └─ pages/api/export     静态导出(需 react-dom/server)
+                  ├─ /settings            站点设置(主题色)
+                  ├─ pages/api/export     静态导出(需 react-dom/server)
+                  └─ middleware           自定义域名 → /p/{slug} 重写
   server/         Hono + Prisma + PostgreSQL + Redis
 packages/
-  schema/         @lc/schema 页面协议(zod)+ API 契约 + 属性控件定义
+  schema/         @lc/schema 页面协议(zod)+ API 契约 + 属性控件定义 + 主题调色板
   materials/      @lc/materials 物料组件 + 注册表定义
   renderer/       @lc/renderer schema → React 渲染器
   ui/             @lc/ui shadcn/ui 风格组件(平台界面用)
@@ -48,7 +52,17 @@ docker-compose.yml  postgres + redis + server + web + nginx
 - `RefreshToken`:tokenHash(sha256,唯一)/ userId / expiresAt(登录轮换,登出/改角色即删除)
 - `Page`:name / slug(唯一)/ title / schema(草稿)/ publishedSchema(发布快照)/ status / visibility(inherit|restricted)
 - `PageMember`:pageId / userId(pageId+userId 唯一)/ level(editor|viewer)
+- `PageDomain`:domain(全局唯一)/ pageId —— 自定义域名绑定,页面删除级联解绑
+- `SiteSetting`:key / value(JSONB),key=`site` 存 `{ themePrimary }` 等站点级配置
 - `FormSubmission`:pageId / componentId / data(JSONB)/ createdAt
+
+### 站点主题色
+
+「站点设置」页(需 `site:settings` 权限,默认仅 admin)配置品牌主色,存于 `SiteSetting` 表;`GET /api/settings/site` 匿名可读。渲染器把主色推导出的 `--color-indigo/violet/fuchsia-*` 全套 CSS 变量注入 `.lc-page` 根节点(Tailwind v4 工具类引用这些变量),编辑画布、发布页 SSR、静态导出 HTML 因此整体换肤;渐变第二、三站(violet/fuchsia)按主色色相小幅偏移保持层次。不配置时使用物料默认品牌色。
+
+### 自定义域名绑定
+
+页面「··· → 域名绑定」(需 `site:domain` 权限)把域名(全局唯一)绑定到该页:把域名 A 记录 / CNAME 解析到平台服务器后,访问该域名的根路径由 web `middleware` 重写为 `/p/{slug}`(地址栏保持自定义域名),`/login` `/editor` 等平台路径与 API 不受影响;页面下线或解绑立即失效。域名 → slug 解析走 `GET /api/domains/resolve`(匿名),Redis 缓存 60s(绑定/解绑/下线时失效)。nginx 配置为 `server_name _` 通配,自定义域名指向服务器即可,无需改配置。
 
 ### 图片存储
 
@@ -62,18 +76,19 @@ docker-compose.yml  postgres + redis + server + web + nginx
 |---|---|---|---|
 | page:read / submission:read | ✓ | ✓ | ✓ |
 | page:create / update / delete / publish / unpublish / **page:share** | ✓ | ✓ | — |
+| site:settings(站点设置)/ site:domain(域名绑定) | ✓ | — | — |
 | user:read / create / update / delete | ✓ | — | — |
 | role:read / create / update / delete | ✓ | — | — |
 
-规则:内置角色不可删除;「管理员」权限锁定为全量;在用角色不可删除;最后一个启用中的 admin 不可降级/停用。服务端 `requirePermission` 每次请求按角色实时解析权限(进程内 15s 缓存,角色变更立即失效);登录/`/me` 响应携带 `permissions` 数组,前端 `can()` 直接判定。
+规则:内置角色不可删除;「管理员」权限锁定为全量(新增权限点自动覆盖,不依赖存量数据);在用角色不可删除;最后一个启用中的 admin 不可降级/停用。服务端 `requirePermission` 每次请求按角色实时解析权限(进程内 15s 缓存,角色变更立即失效);登录/`/me` 响应携带 `permissions` 数组,前端 `can()` 直接判定。
 
 **页面级协作**:`page.visibility = inherit`(默认)时按全局角色访问;`restricted` 时仅协作成员与全局持有 `page:update` 的用户可见。`PageMember` 把单个用户加为某页的 `editor`(编辑草稿 + 发布/下线该页)或 `viewer`(只读),与全局权限取高者;成员管理需全局 `page:share`。页面列表接口按上述规则过滤,无访问一律 404 不泄露存在性。
 
-匿名可访问:`GET /api/p/:slug`、`POST /api/forms`、`GET /api/healthz`、登录与刷新接口。
+匿名可访问:`GET /api/p/:slug`、`POST /api/forms`、`GET /api/healthz`、`GET /api/settings/site`、`GET /api/domains/resolve`、登录与刷新接口。
 
 ### Redis 职责
 
-① 发布 schema 缓存(publish 时失效,SSR 回源 PG);② 表单提交 IP 限流(5 次/分钟)。均带降级:Redis 不可用不阻塞主流程。
+① 发布 schema 缓存(publish 时失效,SSR 回源 PG);② 表单提交 IP 限流(5 次/分钟);③ 自定义域名 → slug 解析缓存(60s,绑定/解绑/下线时失效)。均带降级:Redis 不可用不阻塞主流程。
 
 ## 快速开始(本地开发)
 
@@ -116,8 +131,8 @@ docker compose up -d --build
 3. 编辑器:左侧拖入物料(或点击添加)→ 画布点击选中 → 右侧改属性 → 顶部预览/切换设备宽度
 4. 「发布」→ 设置 slug → 获得 `/p/{slug}` 访问链接(匿名可访问);再次发布更新线上内容
 5. 「导出 HTML」→ 下载自包含静态文件;表单提交会回传平台 API(需保证 `SITE_API_URL` 可达)
-6. 首页「··· → 提交数据」查看联系表单收集的线索;「··· → 协作成员」可把任意用户加为该页编辑者/查看者并开启「限制访问」
-7. 右上角用户菜单 → 「用户管理」维护账号;「角色权限」新建自定义角色并勾选权限点
+6. 首页「··· → 提交数据」查看联系表单收集的线索;「··· → 协作成员」可把任意用户加为该页编辑者/查看者并开启「限制访问」;「··· → 域名绑定」把自定义域名指向该页(解析到平台后访问域名即出发布内容)
+7. 右上角用户菜单 → 「用户管理」维护账号;「角色权限」新建自定义角色并勾选权限点;「站点设置」配置全局主题色
 
 ## 新增物料指南
 
@@ -129,9 +144,7 @@ docker compose up -d --build
 
 无需改动编辑器/渲染器/属性面板,物料自动出现在左侧面板并全部可用。
 
-> 注意:带 `"use client"` 的组件文件只导出组件,def 定义放独立文件 —— 否则 RSC 下注册表条目会变成客户端引用,服务端渲染时物料会被跳过。
-
-## API 一览(Hono)
+> 注意:带 `"use client"` 的组件文件只导出组件,def 定义放独立文件 —— 否则 RSC 下注册表条目会变成客户端引用,服务端渲染时物料会被跳过。## API 一览(Hono)
 
 鉴权:除标注「匿名」外均需 `Authorization: Bearer <accessToken>`;错误统一 `{ error }` 格式。
 
@@ -162,7 +175,13 @@ POST   /api/pages/:id/unpublish    下线(page:unpublish 或该页编辑级成�
 GET    /api/pages/:id/members      协作成员列表(page:share)
 POST   /api/pages/:id/members      添加/更新成员 {userId, level: editor|viewer}(page:share)
 DELETE /api/pages/:id/members/:userId  移除成员(page:share)
+GET    /api/pages/:id/domains      域名绑定列表(site:domain)
+POST   /api/pages/:id/domains      绑定域名 {domain}(site:domain,全局唯一冲突 409)
+DELETE /api/pages/:id/domains/:domainId  解绑域名(site:domain)
 GET    /api/pages/:id/submissions  表单提交列表(submission:read 或该页成员)
+GET    /api/settings/site          站点设置(主题色)(匿名)
+PUT    /api/settings/site          更新站点设置 {themePrimary: "#rrggbb"|null}(site:settings)
+GET    /api/domains/resolve        域名解析 ?host= → {slug}(匿名,middleware 用,Redis 缓存)
 POST   /api/uploads            上传图片(multipart,字段 file;page:create 或 page:update)
 GET    /api/uploads/:key       读取本地存储的图片(匿名;仅 local 驱动)
 GET    /api/p/:slug            已发布 schema(Redis 缓存)(匿名)
@@ -170,6 +189,3 @@ POST   /api/forms              表单提交 {pageId, componentId, data}(匿名,�
 GET    /api/healthz            健康检查(db/redis)(匿名)
 ```
 
-## 后续可扩展
-
-- 主题色全局配置、自定义域名绑定

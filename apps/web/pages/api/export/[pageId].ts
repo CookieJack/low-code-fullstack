@@ -10,6 +10,9 @@ import type { PageSchema } from "@lc/schema";
 /** 静态导出中表单提交指向的公网 API(部署后可访问的平台地址) */
 const SITE_API = process.env.SITE_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
 
+/** 服务端回源地址(SSR / 导出时读取站点设置) */
+const INTERNAL_API = process.env.API_INTERNAL_URL ?? "http://localhost:3001";
+
 /** 导出的静态文件部署在任意外部域名,页内相对引用的上传图片需补全为平台绝对地址 */
 function absolutizeUploads(html: string): string {
   if (!SITE_API) return html;
@@ -85,10 +88,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const page = parsed.data;
   const schema: PageSchema = page.schema;
 
+  // 站点主题色(失败按未配置处理):导出 HTML 与发布页观感一致
+  let themePrimary: string | null = null;
+  try {
+    const settingsRes = await fetch(`${INTERNAL_API}/api/settings/site`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (settingsRes.ok) {
+      themePrimary = ((await settingsRes.json()) as { themePrimary?: string | null })
+        .themePrimary ?? null;
+    }
+  } catch {
+    /* 主题色获取失败不阻塞导出 */
+  }
+
   const body = renderToStaticMarkup(
     createElement(Renderer, {
       schema,
       mode: "export",
+      themePrimary,
       context: { pageId: String(req.query.pageId ?? ""), formApiUrl: SITE_API },
     }),
   );

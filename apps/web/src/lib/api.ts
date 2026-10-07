@@ -1,10 +1,12 @@
 import type {
   PageDetail,
+  PageDomain,
   PageMember,
   PageMeta,
   PageMemberLevel,
   PublishedPage,
   RoleDto,
+  SiteSettings,
   UserDto,
 } from "@lc/schema";
 import { clearAuth, getAccessToken, redirectToLogin, refreshSession } from "./auth-client";
@@ -186,4 +188,19 @@ export const upsertPageMember = (pageId: string, userId: string, level: PageMemb
   });
 export const removePageMember = (pageId: string, userId: string) =>
   api<{ ok: true }>(`/api/pages/${pageId}/members/${userId}`, { method: "DELETE" });
+
+export const getSiteSettings = () => api<SiteSettings>("/api/settings/site");
+export const updateSiteSettings = (data: { themePrimary: string | null }) =>
+  api<SiteSettings>("/api/settings/site", { method: "PUT", body: JSON.stringify(data) });
+
+export const listPageDomains = (pageId: string) =>
+  api<PageDomain[]>(`/api/pages/${pageId}/domains`);
+export const bindPageDomain = (pageId: string, domain: string) =>
+  api<PageDomain>(`/api/pages/${pageId}/domains`, {
+    method: "POST",
+    body: JSON.stringify({ domain }),
+  });
+export const unbindPageDomain = (pageId: string, domainId: string) =>
+  api<{ ok: true }>(`/api/pages/${pageId}/domains/${domainId}`, { method: "DELETE" });
+
 export type { PageDetail, PageMeta, PublishedPage };

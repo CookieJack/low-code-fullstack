@@ -1,7 +1,7 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useMemo, type CSSProperties, type ReactNode } from "react";
 import { materialMap } from "@lc/materials";
 import type { MaterialContext, MaterialMode } from "@lc/materials";
-import type { NodeSchema, PageSchema } from "@lc/schema";
+import { themeCssVars, type NodeSchema, type PageSchema } from "@lc/schema";
 
 export interface RenderWrapArgs {
   node: NodeSchema;
@@ -23,6 +23,8 @@ export interface RendererProps {
   schema: PageSchema;
   mode?: MaterialMode;
   context?: Omit<MaterialContext, "nodeId">;
+  /** 站点主题色(#rrggbb):由其推导的品牌 CSS 变量注入页面根节点,整页换肤 */
+  themePrimary?: string | null;
   /**
    * 编辑器注入的包装层(选中态/拖拽/工具条),对每一层节点(含容器子节点)生效;
    * 发布页与导出时不传,输出纯净页面。
@@ -88,9 +90,22 @@ function renderNodeList(
 }
 
 /** schema → React 组件树。编辑画布、发布页、静态导出共用此渲染器。 */
-export function Renderer({ schema, mode = "static", context, renderWrap, renderChildren }: RendererProps) {
+export function Renderer({
+  schema,
+  mode = "static",
+  context,
+  themePrimary,
+  renderWrap,
+  renderChildren,
+}: RendererProps) {
+  // 品牌色变量注入 .lc-page 根节点:Tailwind v4 工具类引用 --color-* 变量,
+  // 覆盖后页面内所有物料(indigo/violet/fuchsia 系)整体跟随主题色。
+  const themeStyle = useMemo(
+    () => themeCssVars(themePrimary) as CSSProperties,
+    [themePrimary],
+  );
   return (
-    <div className="lc-page w-full">
+    <div className="lc-page w-full" style={themeStyle}>
       {renderNodeList(schema.nodes, null, mode, context, renderWrap, renderChildren)}
     </div>
   );

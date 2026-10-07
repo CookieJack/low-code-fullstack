@@ -9,7 +9,7 @@ export type AuthEnv = {
   Variables: { authUser: AuthUser };
 };
 
-/** 匿名可访问的接口(发布页 SSR、表单收集、健康检查、登录/刷新、上传图片读取) */
+/** 匿名可访问的接口(发布页 SSR、表单收集、健康检查、登录/刷新、上传图片读取、站点设置读取、域名解析) */
 const PUBLIC_RULES: { method: string; pattern: RegExp }[] = [
   { method: "GET", pattern: /^\/api\/p\/[^/]+$/ },
   { method: "POST", pattern: /^\/api\/forms$/ },
@@ -17,6 +17,8 @@ const PUBLIC_RULES: { method: string; pattern: RegExp }[] = [
   { method: "POST", pattern: /^\/api\/auth\/login$/ },
   { method: "POST", pattern: /^\/api\/auth\/refresh$/ },
   { method: "GET", pattern: /^\/api\/uploads\/.+$/ },
+  { method: "GET", pattern: /^\/api\/settings\/site$/ },
+  { method: "GET", pattern: /^\/api\/domains\/resolve$/ },
 ];
 
 const isPublic = (method: string, path: string) =>

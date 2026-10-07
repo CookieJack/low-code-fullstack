@@ -58,6 +58,26 @@ model Page {
   updatedAt       DateTime        @updatedAt
   submissions     FormSubmission[]
   members         PageMember[]
+  domains         PageDomain[]
+}
+
+/** 绑定到页面的自定义域名:请求 Host 命中即出该页发布内容(middleware 重写) */
+model PageDomain {
+  id        String   @id @default(cuid())
+  /** 归一化小写域名,全局唯一(一个域名只能绑定一个页面) */
+  domain    String   @unique
+  pageId    String
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([pageId])
+}
+
+/** 站点级键值配置(key="site":themePrimary 等主题设置) */
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
 }
 
 model PageMember {

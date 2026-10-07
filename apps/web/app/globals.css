@@ -10,8 +10,12 @@
 @source "../../../packages/renderer/src";
 @source "../../../packages/ui/src";
 
-/* ===== 亮色主题(indigo 品牌) ===== */
-:root {
+/* ===== 亮色主题(indigo 默认品牌) =====
+   品牌相关语义色引用 --color-* 品牌调色板变量(根布局按站点主题色注入,
+   见 @lc/schema themeCssVars),未配置时回退到 Tailwind indigo 默认值。
+   .theme-scope 供局部换肤预览复用同一映射(如设置页的后台界面预览卡)。 */
+:root,
+.theme-scope {
   color-scheme: light;
   --background: #fafafa;
   --foreground: #09090b;
@@ -19,30 +23,31 @@
   --card-foreground: #09090b;
   --popover: #ffffff;
   --popover-foreground: #09090b;
-  --primary: #4f46e5;
+  --primary: var(--color-indigo-600, #4f46e5);
   --primary-foreground: #ffffff;
   --secondary: #f4f4f5;
   --secondary-foreground: #18181b;
   --muted: #f4f4f5;
   --muted-foreground: #71717a;
-  --accent: #eef2ff;
-  --accent-foreground: #3730a3;
+  --accent: var(--color-indigo-50, #eef2ff);
+  --accent-foreground: var(--color-indigo-700, #3730a3);
   --destructive: #ef4444;
   /* 无边框设计:卡片/输入框/弹层一律用阴影与填充表达层次 */
   --border: transparent;
   --input: transparent;
-  --ring: #6366f1;
+  --ring: var(--color-indigo-500, #6366f1);
   --radius: 0.625rem;
   /* 品牌渐变与画布点阵 */
-  --brand-from: #6366f1;
-  --brand-to: #8b5cf6;
+  --brand-from: var(--color-indigo-500, #6366f1);
+  --brand-to: var(--color-violet-500, #8b5cf6);
   --dot-color: #d4d4d8;
   /* 卡片阴影:近处贴地 + 远处柔和扩散 */
   --app-shadow-card: 0 1px 2px rgb(0 0 0 / 0.03), 0 8px 24px -12px rgb(0 0 0 / 0.12);
 }
 
 /* ===== 暗色主题 ===== */
-.dark {
+.dark,
+.dark .theme-scope {
   color-scheme: dark;
   --background: #09090b;
   --foreground: #fafafa;
@@ -50,18 +55,18 @@
   --card-foreground: #fafafa;
   --popover: #1b1b1f;
   --popover-foreground: #fafafa;
-  --primary: #6366f1;
+  --primary: var(--color-indigo-500, #6366f1);
   --primary-foreground: #ffffff;
   --secondary: #1f1f23;
   --secondary-foreground: #e4e4e7;
   --muted: #1a1a1e;
   --muted-foreground: #a1a1aa;
-  --accent: #1e1b4b;
-  --accent-foreground: #c7d2fe;
+  --accent: var(--color-indigo-950, #1e1b4b);
+  --accent-foreground: var(--color-indigo-200, #c7d2fe);
   --destructive: #ef4444;
   --border: rgba(255, 255, 255, 0.07);
   --input: rgba(255, 255, 255, 0.07);
-  --ring: #6366f1;
+  --ring: var(--color-indigo-500, #6366f1);
   --dot-color: #27272a;
   --app-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 32px -12px rgb(0 0 0 / 0.6);
 }

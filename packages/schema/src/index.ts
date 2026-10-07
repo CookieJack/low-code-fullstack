@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export * from "./theme";
+
 /* ------------------------------------------------------------------ */
 /* 页面协议:Node / PageSchema                                          */
 /* ------------------------------------------------------------------ */
@@ -188,6 +190,8 @@ export const PERMISSIONS = [
   "page:unpublish",
   "page:share",
   "submission:read",
+  "site:settings",
+  "site:domain",
   "user:read",
   "user:create",
   "user:update",
@@ -209,6 +213,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "page:unpublish": "下线页面",
   "page:share": "管理页面协作成员",
   "submission:read": "查看表单提交",
+  "site:settings": "站点设置(主题色)",
+  "site:domain": "绑定自定义域名",
   "user:read": "查看用户",
   "user:create": "新建用户",
   "user:update": "编辑用户",
@@ -223,6 +229,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
 export const PERMISSION_GROUPS: { label: string; prefix: string }[] = [
   { label: "页面", prefix: "page:" },
   { label: "表单", prefix: "submission:" },
+  { label: "站点", prefix: "site:" },
   { label: "用户", prefix: "user:" },
   { label: "角色", prefix: "role:" },
 ];

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { Renderer } from "@lc/renderer";
 import type { PublishedPage } from "@lc/schema";
+import { fetchSiteSettings } from "@/lib/settings-server";
 
 const INTERNAL = process.env.API_INTERNAL_URL ?? "http://localhost:3001";
 
@@ -33,13 +34,14 @@ export default async function PublishedPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const data = await getPublished(slug);
+  const [data, settings] = await Promise.all([getPublished(slug), fetchSiteSettings()]);
   if (!data) notFound();
 
   return (
     <Renderer
       schema={data.schema}
       mode="static"
+      themePrimary={settings.themePrimary}
       context={{
         pageId: data.pageId,
         formApiUrl: process.env.NEXT_PUBLIC_API_URL ?? "",

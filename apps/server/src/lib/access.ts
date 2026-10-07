@@ -1,5 +1,5 @@
 import type { Permission } from "@lc/schema";
-import { DEFAULT_ROLE_PERMISSIONS } from "@lc/schema";
+import { DEFAULT_ROLE_PERMISSIONS, PERMISSIONS } from "@lc/schema";
 import type { AuthUser } from "./auth";
 import { db } from "./db";
 import { HTTPException } from "hono/http-exception";
@@ -18,6 +18,9 @@ export function invalidateRoleCache(key?: string) {
 
 /** 角色权限:优先查库(短缓存),角色不存在时回退到内置默认映射 */
 export async function getRolePermissions(roleKey: string): Promise<Permission[]> {
+  // 内置 admin 锁定为全量权限(与角色管理页规则一致),不依赖 DB 中的存量列表
+  if (roleKey === "admin") return [...PERMISSIONS];
+
   const cached = roleCache.get(roleKey);
   if (cached && cached.expiresAt > Date.now()) return cached.permissions;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, LogOut, Users } from "lucide-react";
+import { KeyRound, LogOut, Palette, Users } from "lucide-react";
 import {
   Badge,
   Button,
@@ -42,6 +42,14 @@ export function UserMenu() {
             <a href="/users">
               <Users />
               用户管理
+            </a>
+          </DropdownMenuItem>
+        ) : null}
+        {can("site:settings") ? (
+          <DropdownMenuItem asChild>
+            <a href="/settings">
+              <Palette />
+              站点设置
             </a>
           </DropdownMenuItem>
         ) : null}

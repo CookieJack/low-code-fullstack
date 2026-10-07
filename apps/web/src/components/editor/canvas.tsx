@@ -174,7 +174,7 @@ function EmptyDropZone() {
   );
 }
 
-export function Canvas() {
+export function Canvas({ themePrimary }: { themePrimary?: string | null }) {
   const schema = useEditorStore((s) => s.schema);
   const device = useEditorStore((s) => s.device);
   const previewMode = useEditorStore((s) => s.previewMode);
@@ -192,7 +192,8 @@ export function Canvas() {
         className="mx-auto transition-[width] duration-300"
         style={{ width: DEVICE_WIDTH[device], maxWidth: "100%" }}
       >
-        <div className="min-h-[70vh] overflow-hidden rounded-xl bg-white shadow-2xl">
+        {/* contain:paint 让物料的 fixed 全屏遮罩以页面框为基准,不逃逸覆盖编辑器 */}
+        <div className="min-h-[70vh] overflow-hidden rounded-xl bg-white shadow-2xl [contain:paint]">
           {nodes.length === 0 && !previewMode ? (
             <EmptyDropZone />
           ) : (
@@ -203,6 +204,7 @@ export function Canvas() {
               <Renderer
                 schema={schema}
                 mode="edit"
+                themePrimary={themePrimary}
                 context={{ pageId: pageId ?? undefined, formApiUrl: API_BASE }}
                 renderWrap={
                   previewMode

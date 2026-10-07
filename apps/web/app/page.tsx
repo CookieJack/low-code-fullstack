@@ -42,16 +42,19 @@ import {
   Skeleton,
   Switch,
 } from "@lc/ui";
-import type { PageMember, PageMeta, PageMemberLevel, UserDto } from "@lc/schema";
+import type { PageDomain, PageMember, PageMeta, PageMemberLevel, UserDto } from "@lc/schema";
 import {
+  bindPageDomain,
   createPage,
   deletePage,
   duplicatePage,
   getSubmissions,
+  listPageDomains,
   listPageMembers,
   listPages,
   listUsers,
   removePageMember,
+  unbindPageDomain,
   unpublishPage,
   updatePageVisibility,
   upsertPageMember,
@@ -149,6 +152,13 @@ export default function DashboardPage() {
   const [memberBusy, setMemberBusy] = useState(false);
   const [visibility, setVisibility] = useState<"inherit" | "restricted">("inherit");
 
+  // 自定义域名绑定
+  const [domainsOf, setDomainsOf] = useState<PageMeta | null>(null);
+  const [domains, setDomains] = useState<PageDomain[]>([]);
+  const [domainsLoading, setDomainsLoading] = useState(false);
+  const [newDomain, setNewDomain] = useState("");
+  const [domainBusy, setDomainBusy] = useState(false);
+
   async function openMembers(page: PageMeta) {
     setMembersOf(page);
     setMembers([]);
@@ -206,6 +216,46 @@ export default function DashboardPage() {
       setMembers((prev) => prev.filter((m) => m.userId !== userId));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "移除失败");
+    }
+  }
+
+  async function openDomains(page: PageMeta) {
+    setDomainsOf(page);
+    setDomains([]);
+    setNewDomain("");
+    setDomainsLoading(true);
+    try {
+      setDomains(await listPageDomains(page.id));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "加载域名绑定失败");
+    } finally {
+      setDomainsLoading(false);
+    }
+  }
+
+  async function handleBindDomain() {
+    if (!domainsOf || !newDomain.trim()) return;
+    setDomainBusy(true);
+    try {
+      const binding = await bindPageDomain(domainsOf.id, newDomain.trim());
+      setDomains((prev) => [...prev, binding]);
+      setNewDomain("");
+      toast.success(`已绑定 ${binding.domain}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "绑定失败");
+    } finally {
+      setDomainBusy(false);
+    }
+  }
+
+  async function handleUnbindDomain(binding: PageDomain) {
+    if (!domainsOf) return;
+    try {
+      await unbindPageDomain(domainsOf.id, binding.id);
+      setDomains((prev) => prev.filter((d) => d.id !== binding.id));
+      toast.success(`已解绑 ${binding.domain}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "解绑失败");
     }
   }
 
@@ -477,6 +527,12 @@ export default function DashboardPage() {
                               协作成员
                             </DropdownMenuItem>
                           ) : null}
+                          {can("site:domain") ? (
+                            <DropdownMenuItem onClick={() => void openDomains(page)}>
+                              <Globe />
+                              域名绑定
+                            </DropdownMenuItem>
+                          ) : null}
                           {can("page:create") ? (
                             <DropdownMenuItem
                               onClick={async () => {
@@ -745,6 +801,76 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               编辑者:可编辑草稿并发布该页;查看者:只读。成员权限仅对本页面生效,全局角色权限不受影响。
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 域名绑定 */}
+      <Dialog open={!!domainsOf} onOpenChange={(v) => !v && setDomainsOf(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>域名绑定 — {domainsOf?.name}</DialogTitle>
+            <DialogDescription>
+              把自定义域名指向该页面:访问域名即出此页发布内容
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label>已绑定域名</Label>
+            {domainsLoading ? (
+              <div className="space-y-2 py-2">
+                <Skeleton className="h-10 rounded-lg" />
+                <Skeleton className="h-10 rounded-lg" />
+              </div>
+            ) : domains.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                还没有绑定域名,从下方添加
+              </p>
+            ) : (
+              <div className="max-h-48 space-y-2 overflow-auto pr-1">
+                {domains.map((d) => (
+                  <div
+                    key={d.id}
+                    className="flex items-center gap-2.5 rounded-lg border px-3 py-2"
+                  >
+                    <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1 truncate font-medium">{d.domain}</div>
+                    {domainsOf?.status !== "published" ? (
+                      <Badge variant="outline">页面未发布,暂不生效</Badge>
+                    ) : null}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive"
+                      title="解绑"
+                      onClick={() => void handleUnbindDomain(d)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label>绑定新域名</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                value={newDomain}
+                placeholder="www.example.com"
+                onChange={(e) => setNewDomain(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void handleBindDomain()}
+              />
+              <Button disabled={!newDomain.trim() || domainBusy} onClick={() => void handleBindDomain()}>
+                绑定
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              先在该页面「发布」,再把域名 A 记录 / CNAME 解析到本平台服务器地址即可访问;域名与页面解绑后立即恢复平台默认首页。
             </p>
           </div>
         </DialogContent>
