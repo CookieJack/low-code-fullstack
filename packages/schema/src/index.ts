@@ -258,6 +258,40 @@ export const publishedPageDto = z.object({
 export type PublishedPage = z.infer<typeof publishedPageDto>;
 
 /* ------------------------------------------------------------------ */
+/* 页面关系图(Storyboard 视图):从各页 href 属性自动推导的站内连线        */
+/* ------------------------------------------------------------------ */
+
+/** 连线来源:哪个物料的哪个 href 属性推出的(如 navbar.href、hero.buttonHref) */
+export const pageLinkOriginSchema = z.object({
+  materialType: z.string(),
+  prop: z.string(),
+});
+export type PageLinkOrigin = z.infer<typeof pageLinkOriginSchema>;
+
+export const pageGraphEdgeSchema = z.object({
+  source: z.string(),
+  /** 目标页面 id;指向未创建页面时为占位节点 id(placeholder:<path>) */
+  target: z.string(),
+  /** 同一对页面的多条 href 已合并为一条边,origins 保留去重后的来源列表 */
+  origins: z.array(pageLinkOriginSchema).default([]),
+});
+export type PageGraphEdge = z.infer<typeof pageGraphEdgeSchema>;
+
+/** 死链占位节点:站内样式路径但全站没有对应页面 */
+export const pageGraphPlaceholderSchema = z.object({
+  id: z.string(),
+  href: z.string(),
+});
+export type PageGraphPlaceholder = z.infer<typeof pageGraphPlaceholderSchema>;
+
+export const pageGraphDto = z.object({
+  pages: z.array(pageMetaDto),
+  edges: z.array(pageGraphEdgeSchema),
+  placeholders: z.array(pageGraphPlaceholderSchema),
+});
+export type PageGraph = z.infer<typeof pageGraphDto>;
+
+/* ------------------------------------------------------------------ */
 /* 角色与权限(RBAC)                                                    */
 /* ------------------------------------------------------------------ */
 

@@ -1,6 +1,7 @@
 import type {
   PageDetail,
   PageDomain,
+  PageGraph,
   PageMember,
   PageMeta,
   PageMemberLevel,
@@ -83,6 +84,7 @@ function clearAndRedirect() {
 }
 
 export const listPages = () => api<PageMeta[]>("/api/pages");
+export const getPageGraph = () => api<PageGraph>("/api/pages/graph");
 export const getPage = (id: string) => api<PageDetail>(`/api/pages/${id}`);
 export const createPage = (name: string, template: "blank" | "landing") =>
   api<PageDetail>("/api/pages", { method: "POST", body: JSON.stringify({ name, template }) });

@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   Copy,
   ExternalLink,
   FileText,
   Globe,
+  LayoutGrid,
   LayoutTemplate,
   MoreHorizontal,
   Pencil,
@@ -15,6 +17,7 @@ import {
   Table2,
   Trash2,
   UsersRound,
+  Waypoints,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -62,6 +65,14 @@ import {
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useAuth, useRequireAuth } from "@/components/auth/auth-provider";
 import { UserMenu } from "@/components/auth/user-menu";
+
+/* 地图视图按需加载(React Flow 体积较大,卡片视图用户不付出首屏成本) */
+const PageGraphView = dynamic(() => import("@/components/dashboard/page-graph"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[calc(100vh-360px)] min-h-[460px] animate-pulse rounded-xl bg-card shadow-card" />
+  ),
+});
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -132,6 +143,22 @@ export default function DashboardPage() {
   const { can } = useAuth();
   const [pages, setPages] = useState<PageMeta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<"cards" | "map">("cards");
+
+  // 视图偏好持久化:编辑器返回(硬链接)或浏览器后退后恢复原视角
+  useEffect(() => {
+    const saved = localStorage.getItem("lc-dashboard-view");
+    if (saved === "cards" || saved === "map") setView(saved);
+  }, []);
+
+  const switchView = (next: "cards" | "map") => {
+    setView(next);
+    try {
+      localStorage.setItem("lc-dashboard-view", next);
+    } catch {
+      /* 存储不可写(如隐私模式)时仅当前会话生效 */
+    }
+  };
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newTemplate, setNewTemplate] = useState<"blank" | "landing">("landing");
@@ -424,10 +451,43 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            <div className="mt-10 flex items-center gap-2">
-              <h2 className="text-sm font-semibold">全部页面</h2>
-              <Badge variant="secondary">{pages.length}</Badge>
+            <div className="mt-10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold">全部页面</h2>
+                <Badge variant="secondary">{pages.length}</Badge>
+              </div>
+              <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
+                <button
+                  type="button"
+                  onClick={() => switchView("cards")}
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    view === "cards"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  卡片
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchView("map")}
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    view === "map"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Waypoints className="h-3.5 w-3.5" />
+                  地图
+                </button>
+              </div>
             </div>
+            {view === "map" ? (
+              <div className="mt-4">
+                <PageGraphView />
+              </div>
+            ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {pages.map((page) => (
                 <div
@@ -568,6 +628,7 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+            )}
           </>
         )}
       </div>

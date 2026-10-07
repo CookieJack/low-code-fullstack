@@ -10,6 +10,7 @@ import {
   pageSchemaSchema,
   createEmptyPageSchema,
   applyGlobalBlocks,
+  type NodeSchema,
   type PageSchema,
   type PublishedPage,
 } from "@lc/schema";
@@ -101,6 +102,134 @@ pagesRoutes.get("/", async (c) => {
       access: accessOf(perms, p),
     })),
   );
+});
+
+/* ------------------------------------------------------------------ */
+/* 页面关系图(Storyboard 视图)                                          */
+/* ------------------------------------------------------------------ */
+
+type LinkRef = { prop: string; href: string };
+
+/** 递归收集 props 里的 href:key 为 href 或以 Href 结尾的字符串值(自动覆盖各物料的跳转配置) */
+function collectHrefs(props: unknown, path: string, out: LinkRef[]): void {
+  if (Array.isArray(props)) {
+    for (const item of props) collectHrefs(item, path, out);
+    return;
+  }
+  if (!props || typeof props !== "object") return;
+  for (const [key, value] of Object.entries(props as Record<string, unknown>)) {
+    const isHref = key === "href" || key.endsWith("Href");
+    const childPath = path ? `${path}.${key}` : key;
+    if (isHref && typeof value === "string") {
+      out.push({ prop: childPath, href: value });
+    } else {
+      collectHrefs(value, childPath, out);
+    }
+  }
+}
+
+/** 站内跳转 href 归一化为路径;外链/协议链接/锚点/相对路径返回 null */
+function normalizeInternalHref(raw: string): string | null {
+  const href = raw.trim();
+  if (!href || href.startsWith("#") || !href.startsWith("/")) return null;
+  if (/^(https?:)?\/\//i.test(href) || /^[a-z][a-z0-9+.-]*:/i.test(href)) return null;
+  const path = href.split(/[?#]/, 1)[0].replace(/\/+$/, "");
+  return path === "" ? "/home" : path;
+}
+
+const isReservedPath = (path: string) =>
+  (RESERVED_SLUGS as readonly string[]).includes(path.slice(1).split("/")[0]);
+
+/**
+ * 页面关系图:可见页面为节点;连线由各页 schema 里的站内 href × 全站 slug
+ * 自动推导(只读);指向不存在页面的 href 输出为死链占位节点。
+ */
+pagesRoutes.get("/graph", async (c) => {
+  const user = c.get("authUser");
+  const perms = await getUserPermissions(user);
+  const isStaff = perms.includes("page:update");
+  const visible = await db.page.findMany({
+    where: isStaff
+      ? undefined
+      : {
+          OR: [
+            ...(perms.includes("page:read") ? [{ visibility: "inherit" }] : []),
+            { members: { some: { userId: user.id } } },
+          ],
+        },
+    orderBy: { updatedAt: "desc" },
+    include: { members: { where: { userId: user.id }, select: { level: true } } },
+  });
+
+  // 目标匹配用全量 slug;命中但当前用户不可见的页面直接丢边,不泄露受限页存在性
+  const allSlugs = await db.page.findMany({
+    where: { slug: { not: null } },
+    select: { slug: true },
+  });
+  const slugSet = new Set(allSlugs.map((p) => `/${p.slug}`));
+  const visibleByPath = new Map<string, string>();
+  for (const p of visible) if (p.slug) visibleByPath.set(`/${p.slug}`, p.id);
+
+  const pages = visible.map((p) => ({
+    ...metaOf(p),
+    visibility: p.visibility,
+    access: accessOf(perms, p),
+  }));
+
+  const edgeMap = new Map<
+    string,
+    { source: string; target: string; origins: { materialType: string; prop: string }[] }
+  >();
+  const originKeys = new Map<string, Set<string>>();
+  const placeholderPaths = new Set<string>();
+
+  const addLink = (sourceId: string, targetId: string, materialType: string, prop: string) => {
+    const key = `${sourceId}->${targetId}`;
+    if (!edgeMap.has(key)) {
+      edgeMap.set(key, { source: sourceId, target: targetId, origins: [] });
+      originKeys.set(key, new Set());
+    }
+    const originKey = `${materialType}.${prop}`;
+    const seen = originKeys.get(key)!;
+    if (!seen.has(originKey)) {
+      seen.add(originKey);
+      edgeMap.get(key)!.origins.push({ materialType, prop });
+    }
+  };
+
+  for (const page of visible) {
+    const parsed = pageSchemaSchema.safeParse(page.schema);
+    if (!parsed.success) continue;
+    const walkNodes = (nodes: NodeSchema[]) => {
+      for (const node of nodes) {
+        const refs: LinkRef[] = [];
+        collectHrefs(node.props, "", refs);
+        for (const ref of refs) {
+          const path = normalizeInternalHref(ref.href);
+          if (!path || isReservedPath(path)) continue;
+          if (page.slug && path === `/${page.slug}`) continue; // 自环跳过
+          const targetId = visibleByPath.get(path);
+          if (targetId) {
+            addLink(page.id, targetId, node.type, ref.prop);
+          } else if (!slugSet.has(path)) {
+            placeholderPaths.add(path);
+            addLink(page.id, `placeholder:${path}`, node.type, ref.prop);
+          }
+        }
+        if (node.children?.length) walkNodes(node.children);
+      }
+    };
+    walkNodes(parsed.data.nodes);
+  }
+
+  return c.json({
+    pages,
+    edges: [...edgeMap.values()],
+    placeholders: [...placeholderPaths].map((path) => ({
+      id: `placeholder:${path}`,
+      href: path,
+    })),
+  });
 });
 
 /** 新建页面 */
