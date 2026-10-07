@@ -9,6 +9,7 @@ import {
   bindPageDomainInput,
   pageSchemaSchema,
   createEmptyPageSchema,
+  applyGlobalBlocks,
   type PageSchema,
   type PublishedPage,
 } from "@lc/schema";
@@ -16,6 +17,7 @@ import { db } from "../lib/db";
 import { parseBody, readJson } from "../lib/http";
 import { invalidatePublished, setPublishedCached } from "../lib/publish-cache";
 import { invalidateDomain } from "../lib/domain-cache";
+import { getSiteSettings, syncGlobalBlocks } from "../lib/settings";
 import { landingTemplate } from "../templates";
 import { requirePermission, type AuthEnv } from "../middleware/auth";
 import {
@@ -113,14 +115,14 @@ pagesRoutes.post("/", requirePermission("page:create"), async (c) => {
     },
   });
   const access = (await resolvePageAccess(c.get("authUser"), page.id)).access;
-  return c.json(toDetail(page, access), 201);
+  return c.json(await toDetail(page, access), 201);
 });
 
 /** 页面详情(协作成员可见受限页;无访问一律 404,不泄露存在性) */
 pagesRoutes.get("/:id", async (c) => {
   const { page, access } = await resolvePageAccess(c.get("authUser"), c.req.param("id"));
   if (access === "none") throw new HTTPException(404, { message: "页面不存在" });
-  return c.json(toDetail(page, access));
+  return c.json(await toDetail(page, access));
 });
 
 /** 更新页面(草稿内容);可见性调整需要全局 page:share */
@@ -137,6 +139,11 @@ pagesRoutes.put("/:id", async (c) => {
     }
   }
 
+  // 页头/页尾为站点级配置:任一页面保存即同步全站(编辑器/发布页实时生效)
+  if (input.schema !== undefined) {
+    await syncGlobalBlocks(input.schema);
+  }
+
   const updated = await db.page.update({
     where: { id: page.id },
     data: {
@@ -146,7 +153,7 @@ pagesRoutes.put("/:id", async (c) => {
       ...(input.visibility !== undefined ? { visibility: input.visibility } : {}),
     },
   });
-  return c.json(toDetail(updated, access));
+  return c.json(await toDetail(updated, access));
 });
 
 /** 删除页面(仅全局 page:delete) */
@@ -176,7 +183,7 @@ pagesRoutes.post("/:id/duplicate", requirePermission("page:create"), async (c) =
       status: "draft",
     },
   });
-  return c.json(toDetail(copy, access), 201);
+  return c.json(await toDetail(copy, access), 201);
 });
 
 /** 发布:全局 page:publish,或对该页拥有编辑级协作权限 */
@@ -381,7 +388,7 @@ pagesRoutes.delete("/:id/domains/:domainId", requirePermission("site:domain"), a
 
 /* ------------------------------------------------------------------ */
 
-function toDetail(
+async function toDetail(
   page: {
     id: string;
     name: string;
@@ -396,11 +403,13 @@ function toDetail(
   },
   access: PageAccess,
 ) {
+  // 草稿视图统一应用站点级页头/页尾:编辑器打开任一页面看到的都是最新全局配置
+  const settings = await getSiteSettings();
   return {
     ...metaOf(page),
     visibility: page.visibility,
     access,
-    schema: pageSchemaSchema.parse(page.schema),
+    schema: applyGlobalBlocks(pageSchemaSchema.parse(page.schema), settings),
     publishedSchema: page.publishedSchema
       ? pageSchemaSchema.parse(page.publishedSchema)
       : null,

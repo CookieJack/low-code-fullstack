@@ -6,16 +6,6 @@ import { z } from "zod";
 
 export const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
-export const siteSettingsSchema = z.object({
-  /** 品牌主色(#rrggbb);null = 未配置,物料使用默认 indigo */
-  themePrimary: z.string().regex(HEX_COLOR_RE).nullable().default(null),
-});
-export type SiteSettings = z.infer<typeof siteSettingsSchema>;
-
-export const updateSiteSettingsInput = z.object({
-  themePrimary: z.string().regex(HEX_COLOR_RE, "请输入 #rrggbb 格式的颜色").nullable(),
-});
-
 /* ---------------- 品牌调色板推导 ---------------- */
 
 /** Tailwind 明度阶梯相对 600 的偏移(以 indigo 阶梯为基准),仅用作分布权重 */

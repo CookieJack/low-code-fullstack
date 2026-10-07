@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { Renderer } from "@lc/renderer";
-import type { PublishedPage } from "@lc/schema";
+import { applyGlobalBlocks, type PublishedPage } from "@lc/schema";
 import { fetchSiteSettings } from "@/lib/settings-server";
 
 const INTERNAL = process.env.API_INTERNAL_URL ?? "http://localhost:3001";
@@ -39,12 +39,14 @@ export default async function PublishedPage({
 
   return (
     <Renderer
-      schema={data.schema}
+      schema={applyGlobalBlocks(data.schema, settings)}
       mode="static"
       themePrimary={settings.themePrimary}
       context={{
         pageId: data.pageId,
         formApiUrl: process.env.NEXT_PUBLIC_API_URL ?? "",
+        // 站点内跳转统一使用 /p/{slug} 规范路径,导航栏据此高亮当前菜单项
+        currentPath: `/p/${slug}`,
       }}
     />
   );

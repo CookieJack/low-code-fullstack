@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { HEX_COLOR_RE } from "./theme";
+
 export * from "./theme";
 
 /* ------------------------------------------------------------------ */
@@ -58,6 +60,90 @@ export const createEmptyPageSchema = (title = ""): PageSchema => ({
   title,
   nodes: [],
 });
+
+/* ------------------------------------------------------------------ */
+/* 站点级页头/页尾:全局区块配置                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 站点级区块状态:整份 props + 可选样式。页面内的 navbar/footer 节点只是
+ * 「引用位」——保存任一页面时其第一个 navbar/footer 节点的配置同步为全站
+ * 配置,读取(编辑器/发布页/导出)时统一覆盖回各页面,实现实时共享。
+ */
+export interface GlobalBlockState {
+  props: Record<string, unknown>;
+  style?: NodeStyle;
+}
+
+export const globalBlockStateSchema = z.object({
+  props: z.record(z.string(), z.unknown()).default({}),
+  style: nodeStyleSchema.optional(),
+});
+
+/** 脏数据或缺省一律按未配置(null)处理,不让历史值阻塞站点设置读取 */
+const siteBlockField = globalBlockStateSchema.nullable().catch(null).default(null);
+
+export const siteSettingsSchema = z.object({
+  /** 品牌主色(#rrggbb);null = 未配置,物料使用默认 indigo */
+  themePrimary: z.string().regex(HEX_COLOR_RE).nullable().default(null),
+  /** 站点级页头导航配置;null = 尚未由任何页面同步 */
+  navbarBlock: siteBlockField,
+  /** 站点级页脚配置;null = 尚未由任何页面同步 */
+  footerBlock: siteBlockField,
+});
+export type SiteSettings = z.infer<typeof siteSettingsSchema>;
+
+export const updateSiteSettingsInput = z.object({
+  themePrimary: z.string().regex(HEX_COLOR_RE, "请输入 #rrggbb 格式的颜色").nullable(),
+});
+
+/** 深度优先查找第一个指定类型的节点(含容器子节点) */
+export function findNodeOfType(nodes: NodeSchema[], type: string): NodeSchema | null {
+  for (const node of nodes) {
+    if (node.type === type) return node;
+    if (node.children?.length) {
+      const hit = findNodeOfType(node.children, type);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+/** 从页面 schema 提取页头/页尾配置(保存页面时同步到站点设置) */
+export function extractGlobalBlocks(schema: PageSchema): {
+  navbarBlock: GlobalBlockState | null;
+  footerBlock: GlobalBlockState | null;
+} {
+  const toState = (node: NodeSchema | null): GlobalBlockState | null =>
+    node ? { props: node.props, ...(node.style ? { style: node.style } : {}) } : null;
+  return {
+    navbarBlock: toState(findNodeOfType(schema.nodes, "navbar")),
+    footerBlock: toState(findNodeOfType(schema.nodes, "footer")),
+  };
+}
+
+/**
+ * 读取路径:站点级页头/页尾覆盖页面内同类型节点的 props 与样式
+ * (站点未配置或页面未放该区块时原样保留)。
+ */
+export function applyGlobalBlocks(
+  schema: PageSchema,
+  blocks: { navbarBlock?: GlobalBlockState | null; footerBlock?: GlobalBlockState | null },
+): PageSchema {
+  const override = (node: NodeSchema): NodeSchema => {
+    const block =
+      node.type === "navbar"
+        ? blocks.navbarBlock ?? null
+        : node.type === "footer"
+          ? blocks.footerBlock ?? null
+          : null;
+    const replaced = block ? { ...node, props: block.props, style: block.style ?? node.style } : node;
+    return replaced.children?.length
+      ? { ...replaced, children: replaced.children.map(override) }
+      : replaced;
+  };
+  return { ...schema, nodes: schema.nodes.map(override) };
+}
 
 /* ------------------------------------------------------------------ */
 /* 属性面板控件定义(propSchema):驱动属性面板自动生成表单                  */

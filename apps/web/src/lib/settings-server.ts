@@ -10,9 +10,9 @@ const INTERNAL = process.env.API_INTERNAL_URL ?? "http://localhost:3001";
 export const fetchSiteSettings = cache(async (): Promise<SiteSettings> => {
   try {
     const res = await fetch(`${INTERNAL}/api/settings/site`, { cache: "no-store" });
-    if (!res.ok) return { themePrimary: null };
+    if (!res.ok) return { themePrimary: null, navbarBlock: null, footerBlock: null };
     return (await res.json()) as SiteSettings;
   } catch {
-    return { themePrimary: null };
+    return { themePrimary: null, navbarBlock: null, footerBlock: null };
   }
 });

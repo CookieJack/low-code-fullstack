@@ -14,7 +14,9 @@ settingsRoutes.get("/site", async (c) => {
 /** 更新站点设置(站点设置权限) */
 settingsRoutes.put("/site", requirePermission("site:settings"), async (c) => {
   const input = parseBody(updateSiteSettingsInput, await readJson(c));
-  const value = siteSettingsSchema.parse({ themePrimary: input.themePrimary });
+  // 在既有设置上合并:页头/页尾全局区块不随主题色更新被清空
+  const current = await getSiteSettings();
+  const value = siteSettingsSchema.parse({ ...current, themePrimary: input.themePrimary });
   await saveSiteSettings(value);
   return c.json(value);
 });

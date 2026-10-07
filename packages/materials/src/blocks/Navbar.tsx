@@ -58,19 +58,48 @@ function normalizeLinks(value: unknown): NavLink[] {
     });
 }
 
-function leafLinkClass() {
-  return "block rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 hover:text-indigo-600";
+/** 品牌展示模式:名称 + Logo / 仅名称 / 仅 Logo */
+type BrandMode = "both" | "name" | "logo";
+
+/** 当前菜单项高亮:仅比较站内绝对路径(锚点、外链不参与) */
+function normalizePath(href: string): string | null {
+  if (!href.startsWith("/")) return null;
+  const path = href.split("#")[0].split("?")[0];
+  return path.length > 1 ? path.replace(/\/+$/, "") : "/";
+}
+
+function isPathActive(href: string, currentPath: string): boolean {
+  const path = normalizePath(href);
+  if (!path || !currentPath) return false;
+  if (path === "/") return currentPath === "/";
+  return currentPath === path || currentPath.startsWith(`${path}/`);
+}
+
+/** 菜单项自身或任一子孙命中当前路径(父级随子级联动高亮) */
+function linkActive(link: NavLink, currentPath: string): boolean {
+  return (
+    isPathActive(link.href, currentPath) ||
+    (link.children ?? []).some((c) => linkActive(c, currentPath))
+  );
+}
+
+const TOP_ACTIVE =
+  "relative font-semibold text-indigo-600 after:absolute after:-bottom-2 after:left-1/2 after:h-0.5 after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-indigo-600 after:content-['']";
+const TOP_IDLE = "font-medium text-slate-600 transition hover:text-indigo-600";
+
+function leafLinkClass(active: boolean) {
+  return active
+    ? "block rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-600"
+    : "block rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 hover:text-indigo-600";
 }
 
 /** 桌面端一级菜单:有子菜单时悬停/聚焦展开二级面板 */
-function DesktopLink({ link }: { link: NavLink }) {
+function DesktopLink({ link, currentPath }: { link: NavLink; currentPath: string }) {
+  const active = linkActive(link, currentPath);
   const children = link.children ?? [];
   if (children.length === 0) {
     return (
-      <a
-        href={link.href || "#"}
-        className="text-sm font-medium text-slate-600 transition hover:text-indigo-600"
-      >
+      <a href={link.href || "#"} className={`text-sm ${active ? TOP_ACTIVE : TOP_IDLE}`}>
         {link.label}
       </a>
     );
@@ -79,7 +108,7 @@ function DesktopLink({ link }: { link: NavLink }) {
     <div className="group/root relative">
       <a
         href={link.href || "#"}
-        className="flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-indigo-600"
+        className={`flex items-center gap-1 text-sm ${active ? TOP_ACTIVE : TOP_IDLE}`}
       >
         {link.label}
         <ChevronDownIcon className="transition group-hover/root:rotate-180" />
@@ -88,7 +117,7 @@ function DesktopLink({ link }: { link: NavLink }) {
       <div className="invisible absolute left-0 top-full z-50 pt-2 opacity-0 transition group-hover/root:visible group-hover/root:opacity-100 group-focus-within/root:visible group-focus-within/root:opacity-100">
         <div className="w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
           {children.map((c, i) => (
-            <DesktopSubLink key={i} link={c} />
+            <DesktopSubLink key={i} link={c} currentPath={currentPath} />
           ))}
         </div>
       </div>
@@ -97,11 +126,12 @@ function DesktopLink({ link }: { link: NavLink }) {
 }
 
 /** 桌面端二级菜单:若有三级子菜单,向右飞出 */
-function DesktopSubLink({ link }: { link: NavLink }) {
+function DesktopSubLink({ link, currentPath }: { link: NavLink; currentPath: string }) {
+  const active = linkActive(link, currentPath);
   const children = link.children ?? [];
   if (children.length === 0) {
     return (
-      <a href={link.href || "#"} className={leafLinkClass()}>
+      <a href={link.href || "#"} className={leafLinkClass(active)}>
         {link.label}
       </a>
     );
@@ -110,7 +140,11 @@ function DesktopSubLink({ link }: { link: NavLink }) {
     <div className="group/sub relative">
       <a
         href={link.href || "#"}
-        className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 hover:text-indigo-600"
+        className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition ${
+          active
+            ? "bg-indigo-50 font-medium text-indigo-600"
+            : "text-slate-700 hover:bg-slate-50 hover:text-indigo-600"
+        }`}
       >
         {link.label}
         <ChevronRightIcon className="text-slate-400" />
@@ -119,7 +153,7 @@ function DesktopSubLink({ link }: { link: NavLink }) {
       <div className="invisible absolute left-full top-0 z-50 pl-1.5 opacity-0 transition group-hover/sub:visible group-hover/sub:opacity-100 group-focus-within/sub:visible group-focus-within/sub:opacity-100">
         <div className="w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
           {children.map((c, i) => (
-            <a key={i} href={c.href || "#"} className={leafLinkClass()}>
+            <a key={i} href={c.href || "#"} className={leafLinkClass(isPathActive(c.href, currentPath))}>
               {c.label}
             </a>
           ))}
@@ -130,12 +164,27 @@ function DesktopSubLink({ link }: { link: NavLink }) {
 }
 
 /** 移动端全屏抽屉菜单项:子菜单用嵌套 details 手风琴展开(无 JS) */
-function MobileLink({ link, depth = 0 }: { link: NavLink; depth?: number }) {
+function MobileLink({
+  link,
+  depth = 0,
+  currentPath,
+}: {
+  link: NavLink;
+  depth?: number;
+  currentPath: string;
+}) {
   const children = link.children ?? [];
+  const active = linkActive(link, currentPath);
   const rowClass =
     depth === 0
-      ? "rounded-lg px-3 py-3 text-[15px] font-medium text-slate-800 hover:bg-slate-50 hover:text-indigo-600"
-      : "rounded-lg px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-indigo-600";
+      ? `rounded-lg px-3 py-3 text-[15px] font-medium ${
+          active ? "bg-indigo-50 text-indigo-600" : "text-slate-800 hover:bg-slate-50 hover:text-indigo-600"
+        }`
+      : `rounded-lg px-3 py-2.5 text-sm ${
+          active
+            ? "bg-indigo-50 font-medium text-indigo-600"
+            : "text-slate-600 hover:bg-slate-50 hover:text-indigo-600"
+        }`;
   if (children.length === 0) {
     return (
       <a href={link.href || "#"} className={`block ${rowClass}`}>
@@ -151,17 +200,18 @@ function MobileLink({ link, depth = 0 }: { link: NavLink; depth?: number }) {
       </summary>
       <div className="ml-3 border-l border-slate-100">
         {children.map((c, i) => (
-          <MobileLink key={i} link={c} depth={depth + 1} />
+          <MobileLink key={i} link={c} depth={depth + 1} currentPath={currentPath} />
         ))}
       </div>
     </details>
   );
 }
 
-function Navbar({ props, style }: MaterialComponentProps) {
+function Navbar({ props, style, context }: MaterialComponentProps) {
   const {
     brand = "我的品牌",
     logoUrl = "",
+    brandMode: rawBrandMode,
     links: rawLinks = [
       { label: "首页", href: "#" },
       { label: "产品", href: "#" },
@@ -170,16 +220,28 @@ function Navbar({ props, style }: MaterialComponentProps) {
     ctaText = "联系我们",
     ctaHref = "#",
   } = props as Partial<Props>;
+  // 旧数据无该字段或取值非法时回退为「名称 + Logo」
+  const brandMode: BrandMode =
+    rawBrandMode === "name" || rawBrandMode === "logo" ? rawBrandMode : "both";
   const links = normalizeLinks(rawLinks);
+  const currentPath = context?.currentPath ?? "";
   const menuId = `lc-nav-${useId().replace(/\W/g, "")}`;
   const { background, ...frameStyle } = sectionStyle(style, {
     background: "rgba(255,255,255,0.92)",
   }) as CSSProperties;
 
-  const brandMark = logoUrl ? (
-    <img src={logoUrl} alt={brand} className="h-8 w-auto" />
-  ) : (
-    <span className="text-lg font-bold tracking-tight text-slate-900">{brand}</span>
+  // 仅 Logo 但未配置图片时回退为名称,避免品牌位空缺
+  const showLogo = Boolean(logoUrl) && brandMode !== "name";
+  const showName =
+    brandMode === "both" || brandMode === "name" || (brandMode === "logo" && !logoUrl);
+
+  const brandMark = (
+    <>
+      {showLogo ? <img src={logoUrl} alt={brand} className="h-8 w-auto" /> : null}
+      {showName ? (
+        <span className="text-lg font-bold tracking-tight text-slate-900">{brand}</span>
+      ) : null}
+    </>
   );
 
   return (
@@ -204,7 +266,7 @@ function Navbar({ props, style }: MaterialComponentProps) {
 
         <nav className="hidden items-center gap-8 @min-[768px]:flex">
           {links.map((l, i) => (
-            <DesktopLink key={i} link={l} />
+            <DesktopLink key={i} link={l} currentPath={currentPath} />
           ))}
         </nav>
 
@@ -251,7 +313,7 @@ function Navbar({ props, style }: MaterialComponentProps) {
           </div>
           <nav className="flex-1 overflow-y-auto p-3">
             {links.map((l, i) => (
-              <MobileLink key={i} link={l} />
+              <MobileLink key={i} link={l} currentPath={currentPath} />
             ))}
           </nav>
           {ctaText ? (
@@ -273,6 +335,7 @@ function Navbar({ props, style }: MaterialComponentProps) {
 type Props = {
   brand: string;
   logoUrl: string;
+  brandMode: BrandMode;
   links: NavLink[];
   ctaText: string;
   ctaHref: string;
@@ -283,10 +346,11 @@ export const navbarDef: MaterialDef = {
   title: "导航栏",
   icon: "🧭",
   category: "基础",
-  description: "Logo、多级下拉菜单与行动按钮",
+  description: "品牌展示、多级下拉菜单、当前页高亮与行动按钮",
   defaultProps: {
     brand: "我的品牌",
     logoUrl: "",
+    brandMode: "both",
     links: [
       { label: "首页", href: "#" },
       {
@@ -313,6 +377,16 @@ export const navbarDef: MaterialDef = {
   propSchema: [
     { type: "text", key: "brand", label: "品牌名称" },
     { type: "image", key: "logoUrl", label: "Logo 图片", placeholder: "https://…" },
+    {
+      type: "select",
+      key: "brandMode",
+      label: "品牌展示",
+      options: [
+        { label: "名称 + Logo", value: "both" },
+        { label: "仅名称", value: "name" },
+        { label: "仅 Logo", value: "logo" },
+      ],
+    },
     {
       type: "array",
       key: "links",

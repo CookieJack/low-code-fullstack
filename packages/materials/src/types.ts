@@ -7,6 +7,8 @@ export interface MaterialContext {
   nodeId?: string;
   /** 表单提交 API 绝对地址;空字符串表示同源相对路径 /api */
   formApiUrl?: string;
+  /** 当前页面规范路径(发布页注入,如 /p/about):导航栏据此高亮当前菜单项 */
+  currentPath?: string;
 }
 
 export type MaterialMode = "edit" | "static" | "export";
