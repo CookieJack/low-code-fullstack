@@ -52,14 +52,28 @@ export function redirectToLogin(): void {
 
 /* ---------------- 以下接口使用裸 fetch,避免与 api.ts 的 401 拦截互相触发 ---------------- */
 
+export async function fetchCaptcha(): Promise<{ captchaId: string; svg: string }> {
+  const res = await fetch(`${API_BASE}/api/auth/captcha`, { cache: "no-store" });
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    captchaId?: string;
+    svg?: string;
+  };
+  if (!res.ok || !body.captchaId || !body.svg) {
+    throw new Error(body.error ?? "验证码加载失败");
+  }
+  return { captchaId: body.captchaId, svg: body.svg };
+}
+
 export async function login(
   username: string,
   password: string,
+  captcha: { captchaId: string; captchaCode: string },
 ): Promise<TokenResponse> {
   const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, ...captcha }),
   });
   const body = (await res.json().catch(() => ({}))) as { error?: string } & TokenResponse;
   if (!res.ok) {

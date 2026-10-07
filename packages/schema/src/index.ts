@@ -400,6 +400,9 @@ export type UserDto = z.infer<typeof userDto>;
 export const loginInput = z.object({
   username: z.string().min(1, "请输入用户名").max(50),
   password: z.string().min(1, "请输入密码").max(100),
+  /** 图片验证码:GET /api/auth/captcha 下发,一次性,5 分钟有效 */
+  captchaId: z.string().min(1, "请获取验证码"),
+  captchaCode: z.string().min(1, "请输入验证码").max(8),
 });
 
 export const refreshInput = z.object({

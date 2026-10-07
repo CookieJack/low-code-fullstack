@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { loginInput, refreshInput } from "@lc/schema";
 import { parseBody, readJson } from "../lib/http";
 import { rateLimit } from "../lib/rate-limit";
+import { createCaptcha, verifyCaptcha } from "../lib/captcha";
 import {
   findUserById,
   findUserByUsername,
@@ -21,6 +22,15 @@ const clientIp = (c: { req: { header: (k: string) => string | undefined } }) =>
   c.req.header("x-real-ip") ??
   "unknown";
 
+/** 获取登录验证码(IP 限流:30 次/分钟,防刷图片接口) */
+authRoutes.get("/captcha", async (c) => {
+  const allowed = await rateLimit(`captcha:${clientIp(c)}`, 30, 60);
+  if (!allowed) {
+    throw new HTTPException(429, { message: "请求过于频繁,请稍后再试" });
+  }
+  return c.json(await createCaptcha(), 200, { "Cache-Control": "no-store" });
+});
+
 /** 登录(IP 限流:10 次/分钟,防爆破) */
 authRoutes.post("/login", async (c) => {
   const allowed = await rateLimit(`login:${clientIp(c)}`, 10, 60);
@@ -29,6 +39,11 @@ authRoutes.post("/login", async (c) => {
   }
 
   const input = parseBody(loginInput, await readJson(c));
+  // 验证码一次性,校验(无论对错)即作废,错误需刷新重试
+  if (!(await verifyCaptcha(input.captchaId, input.captchaCode))) {
+    throw new HTTPException(400, { message: "验证码错误或已过期,请刷新后重试" });
+  }
+
   const user = await findUserByUsername(input.username);
   // 用户名不存在与密码错误同样处理,不暴露账号是否存在
   const ok = user && user.enabled ? await verifyPassword(input.password, user.passwordHash) : false;
