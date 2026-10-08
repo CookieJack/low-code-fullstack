@@ -69,6 +69,12 @@ docker compose up -d --build
 **移动端预览**
 ![编辑器-移动端预览](screenshots/editor-mobile.png)
 
+### 发布页
+
+发布后通过 `/{slug}` 直接访问，SSR 直出 + Redis 缓存，主题色与编辑器一致。
+
+![发布页](screenshots/published-page.png)
+
 ### 用户与权限
 
 内置 `admin / editor / viewer` 三角色，支持自定义角色与权限点勾选，变更即时生效。
