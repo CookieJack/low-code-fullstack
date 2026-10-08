@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  ChevronDown,
   Copy,
   Download,
   ExternalLink,
@@ -30,11 +31,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Label,
   Separator,
 } from "@lc/ui";
-import { publishPage } from "@/lib/api";
+import { ApiError, publishPage } from "@/lib/api";
 import { saveNow } from "@/lib/editor-save";
 import { useEditorStore, type Device } from "@/lib/editor-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -80,11 +85,21 @@ const DEVICES: { key: Device; icon: typeof Monitor; label: string }[] = [
 function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const pageId = useEditorStore((s) => s.pageId);
   const pageName = useEditorStore((s) => s.pageName);
+  const pageSlug = useEditorStore((s) => s.pageSlug);
   const [slug, setSlug] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<{ slug: string; url: string } | null>(null);
 
-  const effectiveSlug = slug ?? slugify(pageName);
+  // 默认预填页面已有路径(下线后重新发布、更改路径场景),没有才按页面名生成
+  const effectiveSlug = slug ?? pageSlug ?? slugify(pageName);
+
+  // 每次打开都回到干净的表单视图:避免上次"发布成功"结果或取消时输入的路径残留
+  useEffect(() => {
+    if (open) {
+      setResult(null);
+      setSlug(null);
+    }
+  }, [open]);
 
   async function handlePublish() {
     if (!pageId) return;
@@ -93,6 +108,7 @@ function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       const ok = await saveNow();
       if (!ok) throw new Error("保存失败,请重试");
       const res = await publishPage(pageId, effectiveSlug);
+      useEditorStore.getState().markPublished(res.slug);
       setResult({ slug: res.slug, url: res.url });
       toast.success("发布成功!");
     } catch (e) {
@@ -187,6 +203,9 @@ function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 export function Topbar() {
   const pageName = useEditorStore((s) => s.pageName);
   const access = useEditorStore((s) => s.access);
+  const pageId = useEditorStore((s) => s.pageId);
+  const pageSlug = useEditorStore((s) => s.pageSlug);
+  const pageStatus = useEditorStore((s) => s.pageStatus);
   const previewMode = useEditorStore((s) => s.previewMode);
   const setPreviewMode = useEditorStore((s) => s.setPreviewMode);
   const device = useEditorStore((s) => s.device);
@@ -194,12 +213,38 @@ export function Topbar() {
   const dirty = useEditorStore((s) => s.dirty);
   const saving = useEditorStore((s) => s.saving);
   const lastSavedAt = useEditorStore((s) => s.lastSavedAt);
-  const pageId = useEditorStore((s) => s.pageId);
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
   const past = useEditorStore((s) => s.past.length);
   const future = useEditorStore((s) => s.future.length);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [syncPublishing, setSyncPublishing] = useState(false);
+
+  const canSyncPublish = pageStatus === "published" && Boolean(pageSlug);
+
+  /** 已发布页面:保存最新草稿后按原路径直接同步上线,不再弹窗 */
+  async function handleSyncPublish() {
+    if (!pageId || !pageSlug) return;
+    setSyncPublishing(true);
+    try {
+      const ok = await saveNow();
+      if (!ok) throw new Error("保存失败,请重试");
+      const res = await publishPage(pageId, pageSlug);
+      toast.success("已同步更新线上内容", {
+        action: { label: "查看", onClick: () => window.open(res.url, "_blank", "noreferrer") },
+      });
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        // 路径被其他页面占用或为保留字:回退到弹窗让用户调整
+        toast.error(e.message);
+        setPublishOpen(true);
+      } else {
+        toast.error(e instanceof Error ? e.message : "发布失败");
+      }
+    } finally {
+      setSyncPublishing(false);
+    }
+  }
 
   const saveLabel = saving
     ? "保存中…"
@@ -294,14 +339,46 @@ export function Topbar() {
           导出 HTML
         </Button>
         {access === "editor" ? (
-          <Button
-            size="sm"
-            className="bg-brand-gradient text-white shadow-brand hover:opacity-90"
-            onClick={() => setPublishOpen(true)}
-          >
-            <Rocket />
-            发布
-          </Button>
+          canSyncPublish ? (
+            <div className="flex items-center">
+              <Button
+                size="sm"
+                className="rounded-r-none bg-brand-gradient text-white shadow-brand hover:opacity-90"
+                disabled={syncPublishing}
+                title="保存并同步更新已发布的线上页面"
+                onClick={() => void handleSyncPublish()}
+              >
+                <Rocket />
+                {syncPublishing ? "发布中…" : "发布"}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="rounded-l-none border-l border-white/25 bg-brand-gradient px-1.5 text-white shadow-brand hover:opacity-90"
+                    disabled={syncPublishing}
+                    title="更多发布选项"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setPublishOpen(true)}>
+                    更改访问路径…
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              className="bg-brand-gradient text-white shadow-brand hover:opacity-90"
+              onClick={() => setPublishOpen(true)}
+            >
+              <Rocket />
+              发布
+            </Button>
+          )
         ) : null}
         <UserMenu />
       </div>

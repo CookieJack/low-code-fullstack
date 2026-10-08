@@ -57,6 +57,7 @@ export function EditorClient({ pageId }: { pageId: string }) {
             id: page.id,
             name: page.name,
             slug: page.slug,
+            status: page.status,
             schema: page.schema,
             access: page.access,
           });

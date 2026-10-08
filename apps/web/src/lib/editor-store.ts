@@ -26,6 +26,8 @@ interface LoadPayload {
   id: string;
   name: string;
   slug: string | null;
+  /** 页面发布状态;已发布时【发布】按钮直接同步更新 */
+  status?: "draft" | "published";
   schema: PageSchema;
   /** 当前用户对该页的访问级别;viewer 时编辑器进入只读模式 */
   access?: "editor" | "viewer" | "none";
@@ -35,6 +37,7 @@ interface EditorState {
   pageId: string | null;
   pageName: string;
   pageSlug: string | null;
+  pageStatus: "draft" | "published";
   schema: PageSchema;
   /** 当前用户对该页面的访问级别(null = 未加载) */
   access: "editor" | "viewer" | "none" | null;
@@ -70,6 +73,8 @@ interface EditorState {
   redo: () => void;
   markSaved: () => void;
   setSaving: (v: boolean) => void;
+  /** 发布成功后同步 store 中的路径与状态(再次点【发布】即直接同步更新) */
+  markPublished: (slug: string) => void;
 }
 
 const HISTORY_LIMIT = 100;
@@ -78,6 +83,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   pageId: null,
   pageName: "",
   pageSlug: null,
+  pageStatus: "draft",
   schema: { version: 1, title: "", nodes: [] },
   access: null,
   selectedId: null,
@@ -94,6 +100,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       pageId: page.id,
       pageName: page.name,
       pageSlug: page.slug,
+      pageStatus: page.status ?? "draft",
       schema: structuredClone(page.schema),
       access: page.access ?? "editor",
       // 只读访问:强制预览模式(隐藏物料/属性面板与拖拽把手)
@@ -258,6 +265,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   markSaved: () => set({ dirty: false, saving: false, lastSavedAt: Date.now() }),
   setSaving: (saving) => set({ saving }),
+  markPublished: (slug) => set({ pageSlug: slug, pageStatus: "published" }),
 }));
 
 export { findNode };
