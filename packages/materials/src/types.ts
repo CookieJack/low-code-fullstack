@@ -21,6 +21,13 @@ export interface MaterialComponentProps {
   context?: MaterialContext;
   /** 仅容器物料:渲染器递归渲染的子节点列表 */
   children?: ReactNode;
+  /** 仅容器物料:子节点数量;编辑器模式下 children 是包了一层的放置区,需按数量自行渲染页签/条目头 */
+  childCount?: number;
+  /**
+   * 仅容器物料:未包放置区的子节点数组(与 children 内容一致)。
+   * 需要按子项拆分渲染的容器(标签页/折叠面板)优先使用它。
+   */
+  rawChildren?: ReactNode[];
 }
 
 /** 物料定义:注册表的最小单元,新增物料 = 一个组件 + 一份定义 */

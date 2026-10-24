@@ -47,6 +47,7 @@ function renderNodeList(
     let content: ReactNode;
     if (def) {
       let childList: ReactNode | undefined;
+      let renderedChildren: ReactNode[] = [];
       if (def.container) {
         const rendered = renderNodeList(
           node.children ?? [],
@@ -56,6 +57,7 @@ function renderNodeList(
           renderWrap,
           renderChildren,
         );
+        renderedChildren = rendered;
         // 编辑器:空容器也经 renderChildren 生成放置目标;发布/导出:仅在有子节点时传入
         childList = renderChildren
           ? renderChildren({ node, children: rendered })
@@ -69,6 +71,8 @@ function renderNodeList(
           style={node.style}
           mode={mode}
           context={{ ...context, nodeId: node.id }}
+          childCount={def.container ? (node.children?.length ?? 0) : undefined}
+          rawChildren={def.container ? renderedChildren : undefined}
         >
           {childList}
         </def.Component>

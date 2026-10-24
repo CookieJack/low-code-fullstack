@@ -13,3 +13,4 @@ export { Separator } from "./components/separator";
 export { Badge, badgeVariants } from "./components/badge";
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/card";
 export { Skeleton } from "./components/skeleton";
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/tabs";

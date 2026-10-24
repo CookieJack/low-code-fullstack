@@ -1,15 +1,29 @@
 import type { CSSProperties } from "react";
 import type { NodeStyle } from "@lc/schema";
 
-/** 合并物料通用样式覆盖(背景/上下内边距)与物料自身默认样式 */
+/** 合并物料通用样式覆盖(背景/字体/边框/间距)与物料自身默认样式 */
 export function sectionStyle(
   style: NodeStyle | undefined,
   defaults: CSSProperties = {},
 ): CSSProperties {
   const s: CSSProperties = { ...defaults };
   if (style?.background) s.background = style.background;
+  if (style?.fontFamily) s.fontFamily = style.fontFamily;
+  if (style?.fontSize) s.fontSize = style.fontSize;
+  if (style?.fontWeight) s.fontWeight = style.fontWeight;
+  if (style?.color) s.color = style.color;
+  if (style?.textAlign) s.textAlign = style.textAlign;
+  if (style?.lineHeight) s.lineHeight = style.lineHeight;
+  if (style?.borderWidth) {
+    s.borderWidth = style.borderWidth;
+    s.borderStyle = style.borderStyle ?? "solid";
+    s.borderColor = style.borderColor ?? "#e2e8f0";
+  }
+  if (style?.borderRadius) s.borderRadius = style.borderRadius;
   if (style?.paddingTop) s.paddingTop = style.paddingTop;
   if (style?.paddingBottom) s.paddingBottom = style.paddingBottom;
+  if (style?.paddingLeft) s.paddingLeft = style.paddingLeft;
+  if (style?.paddingRight) s.paddingRight = style.paddingRight;
   return s;
 }
 

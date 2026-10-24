@@ -10,9 +10,24 @@ export * from "./theme";
 
 export const nodeStyleSchema = z
   .object({
+    background: z.string().optional(),
+    // 字体(区块级默认,子元素可继承;均为带单位字符串或枚举字符串)
+    fontFamily: z.string().optional(),
+    fontSize: z.string().optional(),
+    fontWeight: z.string().optional(),
+    color: z.string().optional(),
+    textAlign: z.enum(["left", "center", "right"]).optional(),
+    lineHeight: z.string().optional(),
+    // 边框
+    borderWidth: z.string().optional(),
+    borderStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
+    borderColor: z.string().optional(),
+    borderRadius: z.string().optional(),
+    // 间距
     paddingTop: z.string().optional(),
     paddingBottom: z.string().optional(),
-    background: z.string().optional(),
+    paddingLeft: z.string().optional(),
+    paddingRight: z.string().optional(),
   })
   .strict();
 
@@ -22,9 +37,21 @@ export const nodeStyleSchema = z
  * children 可选 —— 旧数据没有该字段,读取后按无子节点处理。
  */
 export interface NodeStyle {
+  background?: string;
+  fontFamily?: string;
+  fontSize?: string;
+  fontWeight?: string;
+  color?: string;
+  textAlign?: "left" | "center" | "right";
+  lineHeight?: string;
+  borderWidth?: string;
+  borderStyle?: "solid" | "dashed" | "dotted";
+  borderColor?: string;
+  borderRadius?: string;
   paddingTop?: string;
   paddingBottom?: string;
-  background?: string;
+  paddingLeft?: string;
+  paddingRight?: string;
 }
 
 export interface NodeSchema {
