@@ -8,6 +8,7 @@ import type {
   PublishedPage,
   RoleDto,
   SiteSettings,
+  TemplateDto,
   UserDto,
 } from "@lc/schema";
 import { clearAuth, getAccessToken, redirectToLogin, refreshSession } from "./auth-client";
@@ -86,8 +87,11 @@ function clearAndRedirect() {
 export const listPages = () => api<PageMeta[]>("/api/pages");
 export const getPageGraph = () => api<PageGraph>("/api/pages/graph");
 export const getPage = (id: string) => api<PageDetail>(`/api/pages/${id}`);
-export const createPage = (name: string, template: "blank" | "landing") =>
-  api<PageDetail>("/api/pages", { method: "POST", body: JSON.stringify({ name, template }) });
+export const createPage = (name: string, templateId?: string) =>
+  api<PageDetail>("/api/pages", {
+    method: "POST",
+    body: JSON.stringify({ name, templateId: templateId || undefined }),
+  });
 export const updatePage = (
   id: string,
   data: { name?: string; title?: string; schema?: unknown },
@@ -141,6 +145,29 @@ export const updateRole = (
 ) => api<RoleDto>(`/api/roles/${id}`, { method: "PUT", body: JSON.stringify(data) });
 export const deleteRole = (id: string) =>
   api<{ ok: true }>(`/api/roles/${id}`, { method: "DELETE" });
+
+/* 模板库 */
+export const listTemplates = () => api<TemplateDto[]>("/api/templates");
+export const listTemplatesManage = () => api<TemplateDto[]>("/api/templates/manage");
+export const createTemplate = (data: {
+  name: string;
+  description?: string;
+  category?: string;
+  thumbnail?: string | null;
+  schema: unknown;
+}) => api<TemplateDto>("/api/templates", { method: "POST", body: JSON.stringify(data) });
+export const updateTemplate = (
+  id: string,
+  data: {
+    name?: string;
+    description?: string;
+    category?: string;
+    thumbnail?: string | null;
+    enabled?: boolean;
+  },
+) => api<TemplateDto>(`/api/templates/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteTemplate = (id: string) =>
+  api<{ ok: true }>(`/api/templates/${id}`, { method: "DELETE" });
 
 export type UploadResult = { url: string; key: string; contentType: string; size: number };
 

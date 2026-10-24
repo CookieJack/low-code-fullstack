@@ -19,7 +19,7 @@ import { parseBody, readJson } from "../lib/http";
 import { invalidatePublished, setPublishedCached } from "../lib/publish-cache";
 import { invalidateDomain } from "../lib/domain-cache";
 import { getSiteSettings, syncGlobalBlocks } from "../lib/settings";
-import { landingTemplate } from "../templates";
+import { instantiateTemplateSchema } from "../templates";
 import { requirePermission, type AuthEnv } from "../middleware/auth";
 import {
   getUserPermissions,
@@ -232,13 +232,21 @@ pagesRoutes.get("/graph", async (c) => {
   });
 });
 
-/** 新建页面 */
+/** 新建页面(可指定模板库起始模板;缺省为空白页) */
 pagesRoutes.post("/", requirePermission("page:create"), async (c) => {
   const input = parseBody(createPageInput, await readJson(c));
-  const schema: PageSchema =
-    input.template === "landing"
-      ? landingTemplate(input.name)
-      : createEmptyPageSchema(input.name);
+  let schema = createEmptyPageSchema(input.name);
+  if (input.templateId) {
+    const template = await db.pageTemplate.findUnique({ where: { id: input.templateId } });
+    if (!template || !template.enabled) {
+      throw new HTTPException(404, { message: "模板不存在或已停用" });
+    }
+    schema = instantiateTemplateSchema(template.schema as unknown as PageSchema, input.name);
+    await db.pageTemplate.update({
+      where: { id: template.id },
+      data: { useCount: { increment: 1 } },
+    });
+  }
   const page = await db.page.create({
     data: {
       name: input.name,

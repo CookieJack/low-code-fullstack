@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, LogOut, Palette, Users } from "lucide-react";
+import { KeyRound, LayoutTemplate, LogOut, Palette, Users } from "lucide-react";
 import {
   Badge,
   Button,
@@ -50,6 +50,14 @@ export function UserMenu() {
             <a href="/dashboard/settings">
               <Palette />
               站点设置
+            </a>
+          </DropdownMenuItem>
+        ) : null}
+        {can("template:manage") ? (
+          <DropdownMenuItem asChild>
+            <a href="/dashboard/templates">
+              <LayoutTemplate />
+              模板库
             </a>
           </DropdownMenuItem>
         ) : null}

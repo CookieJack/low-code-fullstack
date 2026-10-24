@@ -104,3 +104,21 @@ model FormSubmission {
 
   @@index([pageId])
 }
+
+/** 模板库:页面模板(新建页面时可套用);schema 为完整 PageSchema 快照 */
+model PageTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  /** 固定枚举,见 @lc/schema 的 templateCategorySchema */
+  category    String   @default("other")
+  /** 封面图 URL;null = 尚未生成 */
+  thumbnail   String?
+  schema      Json
+  /** 停用后不出现在新建页面弹窗 */
+  enabled     Boolean  @default(true)
+  /** 被用于新建页面的次数 */
+  useCount    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

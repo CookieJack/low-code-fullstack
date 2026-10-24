@@ -2,7 +2,7 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { DEFAULT_ROLE_PERMISSIONS, ROLE_LABELS } from "@lc/schema";
-import { landingTemplate } from "../src/templates";
+import { landingTemplate, eventTemplate } from "../src/templates";
 
 const db = new PrismaClient();
 
@@ -36,8 +36,35 @@ async function seedRoles() {
   console.log("内置角色已就绪(admin / editor / viewer)");
 }
 
+/** 内置模板:仅在模板库为空时插入(幂等) */
+async function seedTemplates() {
+  const count = await db.pageTemplate.count();
+  if (count > 0) {
+    console.log("已存在模板,跳过模板 seed");
+    return;
+  }
+  await db.pageTemplate.createMany({
+    data: [
+      {
+        name: "官网落地页",
+        description: "经典官网首页:页头导航 + 首屏大图 + 优势展示 + 联系表单 + 页脚。",
+        category: "site",
+        schema: landingTemplate("星辰科技 - 一站式数字化解决方案") as object,
+      },
+      {
+        name: "活动报名页",
+        description: "活动宣传与报名:首屏议程亮点 + 报名表单,营销场景快速起步。",
+        category: "marketing",
+        schema: eventTemplate("2026 城市开发者大会 · 报名中") as object,
+      },
+    ],
+  });
+  console.log("已内置 2 个模板(官网落地页 / 活动报名页)");
+}
+
 async function main() {
   await seedRoles();
+  await seedTemplates();
 
   // 首任管理员:仅当没有任何用户时创建
   const userCount = await db.user.count();

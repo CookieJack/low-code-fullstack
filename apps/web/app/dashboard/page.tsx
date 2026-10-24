@@ -45,7 +45,8 @@ import {
   Skeleton,
   Switch,
 } from "@lc/ui";
-import type { PageDomain, PageMember, PageMeta, PageMemberLevel, UserDto } from "@lc/schema";
+import type { PageDomain, PageMember, PageMeta, PageMemberLevel, TemplateDto, UserDto } from "@lc/schema";
+import { TEMPLATE_CATEGORY_LABELS } from "@lc/schema";
 import {
   bindPageDomain,
   createPage,
@@ -55,6 +56,7 @@ import {
   listPageDomains,
   listPageMembers,
   listPages,
+  listTemplates,
   listUsers,
   removePageMember,
   unbindPageDomain,
@@ -161,7 +163,9 @@ export default function DashboardPage() {
   };
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newTemplate, setNewTemplate] = useState<"blank" | "landing">("landing");
+  /** 起始模板:模板库 id;"" = 空白页面 */
+  const [newTemplateId, setNewTemplateId] = useState("");
+  const [templates, setTemplates] = useState<TemplateDto[]>([]);
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<PageMeta | null>(null);
   const [submissionsOf, setSubmissionsOf] = useState<PageMeta | null>(null);
@@ -300,11 +304,23 @@ export default function DashboardPage() {
     void refresh();
   }, [refresh]);
 
+  // 打开新建弹窗时重置模板选择;首次拉取模板库(失败不阻塞空白页创建)
+  useEffect(() => {
+    if (!createOpen) return;
+    setNewTemplateId("");
+    if (templates.length === 0) {
+      listTemplates()
+        .then(setTemplates)
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createOpen]);
+
   async function handleCreate() {
     if (!newName.trim()) return;
     setCreating(true);
     try {
-      const page = await createPage(newName.trim(), newTemplate);
+      const page = await createPage(newName.trim(), newTemplateId || undefined);
       toast.success("页面已创建");
       setCreateOpen(false);
       setNewName("");
@@ -635,7 +651,7 @@ export default function DashboardPage() {
 
       {/* 新建页面 */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>新建页面</DialogTitle>
             <DialogDescription>选择一个起点，之后可以随意增删组件</DialogDescription>
@@ -653,15 +669,59 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-1.5">
               <Label>起始模板</Label>
-              <Select value={newTemplate} onValueChange={(v) => setNewTemplate(v as "blank" | "landing")}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="landing">官网落地页（推荐）</SelectItem>
-                  <SelectItem value="blank">空白页面</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid max-h-56 grid-cols-3 gap-2 overflow-y-auto pr-1">
+                <button
+                  type="button"
+                  onClick={() => setNewTemplateId("")}
+                  className={`rounded-lg border p-2 text-left transition-colors ${
+                    newTemplateId === ""
+                      ? "border-primary ring-1 ring-primary"
+                      : "hover:bg-accent"
+                  }`}
+                >
+                  <div className="flex aspect-[16/10] w-full items-center justify-center rounded-md bg-muted">
+                    <FileText className="h-5 w-5 text-muted-foreground/60" />
+                  </div>
+                  <div className="mt-1.5 truncate text-xs font-medium">空白页面</div>
+                  <div className="text-[11px] text-muted-foreground">从零开始</div>
+                </button>
+                {templates.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setNewTemplateId(t.id)}
+                    className={`rounded-lg border p-2 text-left transition-colors ${
+                      newTemplateId === t.id
+                        ? "border-primary ring-1 ring-primary"
+                        : "hover:bg-accent"
+                    }`}
+                  >
+                    <div className="aspect-[16/10] w-full overflow-hidden rounded-md bg-muted">
+                      {t.thumbnail ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={t.thumbnail}
+                          alt=""
+                          className="h-full w-full object-cover object-top"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <LayoutTemplate className="h-5 w-5 text-muted-foreground/60" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-1.5 truncate text-xs font-medium">{t.name}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {TEMPLATE_CATEGORY_LABELS[t.category] ?? t.category}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {templates.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  模板库暂无可用模板,管理员可在「模板库」中沉淀模板
+                </p>
+              ) : null}
             </div>
           </div>
           <DialogFooter>

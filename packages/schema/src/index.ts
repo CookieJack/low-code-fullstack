@@ -234,7 +234,8 @@ export type PageDetail = z.infer<typeof pageDetailDto>;
 
 export const createPageInput = z.object({
   name: z.string().min(1).max(50),
-  template: z.enum(["blank", "landing"]).default("blank"),
+  /** 起始模板 id(模板库);缺省为空白页面 */
+  templateId: z.string().optional(),
 });
 
 export const updatePageInput = z.object({
@@ -319,6 +320,54 @@ export const pageGraphDto = z.object({
 export type PageGraph = z.infer<typeof pageGraphDto>;
 
 /* ------------------------------------------------------------------ */
+/* 模板库(PageTemplate)                                                */
+/* ------------------------------------------------------------------ */
+
+/** 模板分类:固定枚举,后台管理与新建页面弹窗共用 */
+export const templateCategorySchema = z.enum(["marketing", "site", "form", "event", "other"]);
+export type TemplateCategory = z.infer<typeof templateCategorySchema>;
+
+export const TEMPLATE_CATEGORY_LABELS: Record<TemplateCategory, string> = {
+  marketing: "营销页",
+  site: "官网",
+  form: "表单页",
+  event: "活动页",
+  other: "其他",
+};
+
+export const templateDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  category: templateCategorySchema,
+  /** 封面图 URL;null = 尚未生成 */
+  thumbnail: z.string().nullable(),
+  enabled: z.boolean(),
+  /** 被用于新建页面的次数 */
+  useCount: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type TemplateDto = z.infer<typeof templateDto>;
+
+export const createTemplateInput = z.object({
+  name: z.string().min(1).max(50),
+  description: z.string().max(200).default(""),
+  category: templateCategorySchema.default("other"),
+  thumbnail: z.string().nullable().default(null),
+  /** 模板内容:完整 PageSchema 快照(与 Page.schema 同构) */
+  schema: pageSchemaSchema,
+});
+
+export const updateTemplateInput = z.object({
+  name: z.string().min(1).max(50).optional(),
+  description: z.string().max(200).optional(),
+  category: templateCategorySchema.optional(),
+  thumbnail: z.string().nullable().optional(),
+  enabled: z.boolean().optional(),
+});
+
+/* ------------------------------------------------------------------ */
 /* 角色与权限(RBAC)                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -339,6 +388,7 @@ export const PERMISSIONS = [
   "submission:read",
   "site:settings",
   "site:domain",
+  "template:manage",
   "user:read",
   "user:create",
   "user:update",
@@ -362,6 +412,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "submission:read": "查看表单提交",
   "site:settings": "站点设置(主题色)",
   "site:domain": "绑定自定义域名",
+  "template:manage": "管理模板库",
   "user:read": "查看用户",
   "user:create": "新建用户",
   "user:update": "编辑用户",
@@ -377,6 +428,7 @@ export const PERMISSION_GROUPS: { label: string; prefix: string }[] = [
   { label: "页面", prefix: "page:" },
   { label: "表单", prefix: "submission:" },
   { label: "站点", prefix: "site:" },
+  { label: "模板", prefix: "template:" },
   { label: "用户", prefix: "user:" },
   { label: "角色", prefix: "role:" },
 ];
