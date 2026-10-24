@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 export type Theme = "light" | "dark" | "system";
 
 const STORAGE_KEY = "lc-theme";
+const COLOR_MODE_KEY = "lc-color-mode";
 
 type ThemeContextValue = {
   /** 用户偏好(可能为 system) */
@@ -12,12 +13,17 @@ type ThemeContextValue = {
   /** 实际生效的主题 */
   resolved: "light" | "dark";
   setTheme: (theme: Theme) => void;
+  /** 全灰色模式:独立于亮暗的开关,可叠加 */
+  grayscale: boolean;
+  setGrayscale: (grayscale: boolean) => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "system",
   resolved: "light",
   setTheme: () => {},
+  grayscale: false,
+  setGrayscale: () => {},
 });
 
 export function systemPrefersDark(): boolean {
@@ -33,15 +39,22 @@ export function applyTheme(theme: Theme): "light" | "dark" {
   return resolved;
 }
 
+/** 把全灰色模式应用到 html 元素上(着色见 globals.css 的 html.grayscale 变量块) */
+export function applyGrayscale(grayscale: boolean): void {
+  document.documentElement.classList.toggle("grayscale", grayscale);
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // 无闪烁脚本已在 hydration 前设置好 class,这里读回真实状态
   const [theme, setThemeState] = useState<Theme>("system");
   const [resolved, setResolved] = useState<"light" | "dark">("light");
+  const [grayscale, setGrayscaleState] = useState(false);
 
   useEffect(() => {
     const stored = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "system";
     setThemeState(stored);
     setResolved(applyTheme(stored));
+    setGrayscaleState(localStorage.getItem(COLOR_MODE_KEY) === "grayscale");
   }, []);
 
   // 跟随系统切换(仅 system 模式)
@@ -59,7 +72,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setResolved(applyTheme(next));
   }, []);
 
-  const value = useMemo(() => ({ theme, resolved, setTheme }), [theme, resolved, setTheme]);
+  const setGrayscale = useCallback((next: boolean) => {
+    setGrayscaleState(next);
+    localStorage.setItem(COLOR_MODE_KEY, next ? "grayscale" : "color");
+    applyGrayscale(next);
+  }, []);
+
+  const value = useMemo(
+    () => ({ theme, resolved, setTheme, grayscale, setGrayscale }),
+    [theme, resolved, setTheme, grayscale, setGrayscale],
+  );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

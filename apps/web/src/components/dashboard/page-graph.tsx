@@ -33,7 +33,8 @@ type GraphNode = PageNode | PlaceholderNode;
 const NODE_W = 240;
 const NODE_H = 92;
 
-const EDGE_COLOR = "#818cf8";
+/* 连线色用 CSS 变量,全灰色模式下随品牌色板一并灰化 */
+const EDGE_COLOR = "var(--color-indigo-400, #818cf8)";
 const DEAD_EDGE_COLOR = "#94a3b8";
 
 /* 节点两侧的隐形锚点:只读视图不画出来,让连线吸附到卡片左右边缘 */

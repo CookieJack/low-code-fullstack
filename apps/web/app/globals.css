@@ -71,6 +71,103 @@
   --app-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 32px -12px rgb(0 0 0 / 0.6);
 }
 
+/* ===== 全灰色模式(html.grayscale;主题菜单开关,存 lc-color-mode) =====
+   用变量级去色而非 filter:filter 挂 html 会让 portal 到 body 的 Radix 弹层
+   (fixed 定位)改为相对文档定位,滚动时错位。
+   原理:Tailwind v4 的调色板工具类(bg-indigo-500、text-red-600、from-sky-500…)
+   编译后引用 var(--color-*) 变量,覆盖变量即可让全部字面彩色类一并灰化,
+   无需逐类处理。新增彩色类若用到这里未覆盖的族/档,请同步补充。 */
+html.grayscale {
+  --destructive: #52525b;
+  /* 语义变量(--primary/--accent/--ring/--brand-*)均引用 --color-*,随下方色板灰化自动生效 */
+  /* 状态点缀色族 → zinc 灰阶(覆盖 Tailwind @theme 于 :root 的定义) */
+  --color-red-50: #fafafa;
+  --color-red-100: #f4f4f5;
+  --color-red-200: #e4e4e7;
+  --color-red-300: #d4d4d8;
+  --color-red-400: #a1a1aa;
+  --color-red-500: #71717a;
+  --color-red-600: #52525b;
+  --color-red-700: #3f3f46;
+  --color-red-800: #27272a;
+  --color-red-900: #18181b;
+  --color-red-950: #09090b;
+  --color-emerald-50: #fafafa;
+  --color-emerald-100: #f4f4f5;
+  --color-emerald-200: #e4e4e7;
+  --color-emerald-300: #d4d4d8;
+  --color-emerald-400: #a1a1aa;
+  --color-emerald-500: #71717a;
+  --color-emerald-600: #52525b;
+  --color-emerald-700: #3f3f46;
+  --color-emerald-800: #27272a;
+  --color-emerald-900: #18181b;
+  --color-emerald-950: #09090b;
+  --color-amber-50: #fafafa;
+  --color-amber-100: #f4f4f5;
+  --color-amber-200: #e4e4e7;
+  --color-amber-300: #d4d4d8;
+  --color-amber-400: #a1a1aa;
+  --color-amber-500: #71717a;
+  --color-amber-600: #52525b;
+  --color-amber-700: #3f3f46;
+  --color-amber-800: #27272a;
+  --color-amber-900: #18181b;
+  --color-amber-950: #09090b;
+  /* 物料渐变第二站用到的非品牌色 */
+  --color-teal-500: #71717a;
+  --color-pink-500: #52525b;
+  --color-orange-500: #71717a;
+  --color-blue-600: #52525b;
+  --color-sky-500: #71717a;
+}
+html.dark.grayscale {
+  --destructive: #71717a;
+}
+
+/* 品牌调色板由根布局内联注入 <html>(@lc/schema themeCssVars),需 !important 才能覆盖;
+   indigo → zinc 同档,violet/fuchsia 依次偏暗一/两档,灰度下保留渐变层次 */
+html.grayscale {
+  --color-indigo-50: #fafafa !important;
+  --color-indigo-100: #f4f4f5 !important;
+  --color-indigo-200: #e4e4e7 !important;
+  --color-indigo-300: #d4d4d8 !important;
+  --color-indigo-400: #a1a1aa !important;
+  --color-indigo-500: #71717a !important;
+  --color-indigo-600: #52525b !important;
+  --color-indigo-700: #3f3f46 !important;
+  --color-indigo-800: #27272a !important;
+  --color-indigo-900: #18181b !important;
+  --color-indigo-950: #09090b !important;
+  --color-violet-50: #f4f4f5 !important;
+  --color-violet-100: #e4e4e7 !important;
+  --color-violet-200: #d4d4d8 !important;
+  --color-violet-300: #a1a1aa !important;
+  --color-violet-400: #71717a !important;
+  --color-violet-500: #52525b !important;
+  --color-violet-600: #3f3f46 !important;
+  --color-violet-700: #27272a !important;
+  --color-violet-800: #18181b !important;
+  --color-violet-900: #09090b !important;
+  --color-violet-950: #09090b !important;
+  --color-fuchsia-50: #e4e4e7 !important;
+  --color-fuchsia-100: #d4d4d8 !important;
+  --color-fuchsia-200: #a1a1aa !important;
+  --color-fuchsia-300: #71717a !important;
+  --color-fuchsia-400: #52525b !important;
+  --color-fuchsia-500: #3f3f46 !important;
+  --color-fuchsia-600: #27272a !important;
+  --color-fuchsia-700: #18181b !important;
+  --color-fuchsia-800: #09090b !important;
+  --color-fuchsia-900: #09090b !important;
+  --color-fuchsia-950: #09090b !important;
+}
+
+/* 设置页换肤预览卡(.theme-scope 优先级高于 html.grayscale)的字面色补灰 */
+html.grayscale .theme-scope {
+  --destructive: #52525b;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

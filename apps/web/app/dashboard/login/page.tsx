@@ -6,6 +6,7 @@ import { Globe, Loader2 } from "lucide-react";
 import { Button, Card, CardContent, Input, Label } from "@lc/ui";
 import { login, getAccessToken, fetchCaptcha } from "@/lib/auth-client";
 import { useAuth } from "@/components/auth/auth-provider";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 function LoginForm() {
   const router = useRouter();
@@ -69,6 +70,11 @@ function LoginForm() {
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-indigo-500/15 blur-3xl" />
         <div className="absolute -bottom-40 -right-24 h-96 w-96 rounded-full bg-violet-500/15 blur-3xl" />
+      </div>
+
+      {/* 主题切换:与后台顶栏一致 */}
+      <div className="absolute right-6 top-6 z-10">
+        <ThemeToggle />
       </div>
 
       <Card className="relative w-full max-w-sm shadow-card">
