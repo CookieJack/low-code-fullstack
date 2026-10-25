@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@lc/ui";
+import { useAuth } from "@/components/auth/auth-provider";
 import { useTheme } from "./theme-provider";
 
 /** 主题菜单项:当前偏好打勾 */
@@ -32,9 +33,11 @@ function ThemeItem({
   );
 }
 
-/** 主题切换:亮色/暗色/跟随系统 三选一,附全灰色模式开关(与亮暗叠加) */
+/** 主题切换:亮色/暗色/跟随系统 三选一,附全灰色模式开关(与亮暗叠加;仅管理员可见) */
 export function ThemeToggle() {
   const { theme, resolved, setTheme, grayscale, setGrayscale } = useTheme();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   return (
     <DropdownMenu>
@@ -58,12 +61,16 @@ export function ThemeToggle() {
           icon={<Monitor />}
           label="跟随系统"
         />
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => setGrayscale(!grayscale)} title="去除全部色彩,可叠加亮/暗色使用">
-          <Contrast />
-          全灰色模式
-          {grayscale ? <Check className="ml-auto" /> : null}
-        </DropdownMenuItem>
+        {isAdmin ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setGrayscale(!grayscale)} title="去除全部色彩,可叠加亮/暗色使用">
+              <Contrast />
+              全灰色模式
+              {grayscale ? <Check className="ml-auto" /> : null}
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

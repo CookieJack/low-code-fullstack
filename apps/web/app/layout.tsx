@@ -12,8 +12,8 @@ export const metadata: Metadata = {
   description: "可视化拖拽生成并发布官网页面",
 };
 
-// 首屏渲染前同步主题,避免暗色用户看到白色闪烁;lc-color-mode 恢复全灰色模式
-const themeInitScript = `(function(){try{var t=localStorage.getItem("lc-theme")||"system";var d=t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);var r=document.documentElement.classList;d?r.add("dark"):r.remove("dark");document.documentElement.style.colorScheme=d?"dark":"light";if(localStorage.getItem("lc-color-mode")==="grayscale")r.add("grayscale");}catch(e){}})();`;
+// 首屏渲染前同步主题,避免暗色用户看到白色闪烁;lc-color-mode 仅对缓存的 admin 角色恢复全灰色模式
+const themeInitScript = `(function(){try{var t=localStorage.getItem("lc-theme")||"system";var d=t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);var r=document.documentElement.classList;d?r.add("dark"):r.remove("dark");document.documentElement.style.colorScheme=d?"dark":"light";var u=JSON.parse(localStorage.getItem("lc-user")||"null");if(u&&u.role==="admin"&&localStorage.getItem("lc-color-mode")==="grayscale")r.add("grayscale");}catch(e){}})();`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // 品牌调色板注入 <html>:后台界面(globals.css 语义色引用 --color-* 变量)
@@ -27,9 +27,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </ThemeProvider>
+        {/* AuthProvider 在外层:ThemeProvider 需读取登录角色,灰度仅对 admin 生效 */}
+        <AuthProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </AuthProvider>
         <AppToaster />
       </body>
     </html>

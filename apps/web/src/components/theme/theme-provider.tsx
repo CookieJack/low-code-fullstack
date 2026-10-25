@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/components/auth/auth-provider";
 
 export type Theme = "light" | "dark" | "system";
 
@@ -13,7 +14,7 @@ type ThemeContextValue = {
   /** 实际生效的主题 */
   resolved: "light" | "dark";
   setTheme: (theme: Theme) => void;
-  /** 全灰色模式:独立于亮暗的开关,可叠加 */
+  /** 全灰色模式:独立于亮暗的开关,可叠加;仅 admin 角色可见可用 */
   grayscale: boolean;
   setGrayscale: (grayscale: boolean) => void;
 };
@@ -49,13 +50,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("system");
   const [resolved, setResolved] = useState<"light" | "dark">("light");
   const [grayscale, setGrayscaleState] = useState(false);
+  // 灰度仅 admin 生效;登录态就绪后按角色校正(设置存 localStorage,需防止同浏览器其他角色被波及)
+  const { user, loading } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     const stored = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "system";
     setThemeState(stored);
     setResolved(applyTheme(stored));
-    setGrayscaleState(localStorage.getItem(COLOR_MODE_KEY) === "grayscale");
   }, []);
+
+  // 灰度跟随角色:登录态就绪后,非 admin(含未登录)一律不生效;
+  // 存储偏好保留,admin 再登录同浏览器时自动恢复
+  useEffect(() => {
+    if (loading) return;
+    const active = isAdmin && localStorage.getItem(COLOR_MODE_KEY) === "grayscale";
+    setGrayscaleState(active);
+    applyGrayscale(active);
+  }, [loading, isAdmin]);
 
   // 跟随系统切换(仅 system 模式)
   useEffect(() => {
