@@ -263,12 +263,24 @@ export const upsertPageMemberInput = z.object({
   level: pageMemberLevelSchema.default("viewer"),
 });
 
+/**
+ * 发布路径:小写字母/数字/中划线组成的段,以 / 分隔支持多级(如 product/preview)。
+ * 每段不以中划线开头结尾由输入端归一化保证,这里只挡非法字符与空段。
+ */
+export const PUBLISH_SLUG_PATH_RE = /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/;
+
+/**
+ * 一级路径保留字:发布页占 /{slug} 根路径,这些一级路径会被 web 端静态路由/框架路径
+ * 遮蔽(如 /dashboard 是后台),严禁占用;更深层级(如 /product/dashboard)不受限。
+ */
+export const RESERVED_FIRST_SEGMENTS = ["dashboard", "api", "_next", "favicon.ico"] as const;
+
 export const publishInput = z.object({
   slug: z
     .string()
     .min(1)
-    .max(60)
-    .regex(/^[a-z0-9][a-z0-9-]*$/, "仅允许小写字母、数字和中划线"),
+    .max(200)
+    .regex(PUBLISH_SLUG_PATH_RE, "仅允许小写字母、数字和中划线,多级路径以 / 分隔"),
 });
 
 export const formSubmitInput = z.object({

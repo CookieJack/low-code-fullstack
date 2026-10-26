@@ -10,6 +10,7 @@ import {
   pageSchemaSchema,
   createEmptyPageSchema,
   applyGlobalBlocks,
+  RESERVED_FIRST_SEGMENTS,
   type NodeSchema,
   type PageSchema,
   type PublishedPage,
@@ -28,9 +29,6 @@ import {
 } from "../lib/access";
 
 export const pagesRoutes = new Hono<AuthEnv>();
-
-/** 发布页占根路径(/{slug}),这些 slug 会被 web 端静态路由/框架路径遮蔽,不允许占用 */
-const RESERVED_SLUGS = ["dashboard", "api", "_next", "favicon.ico"] as const;
 
 const META_SELECT = {
   id: true,
@@ -138,7 +136,7 @@ function normalizeInternalHref(raw: string): string | null {
 }
 
 const isReservedPath = (path: string) =>
-  (RESERVED_SLUGS as readonly string[]).includes(path.slice(1).split("/")[0]);
+  (RESERVED_FIRST_SEGMENTS as readonly string[]).includes(path.slice(1).split("/")[0]);
 
 /**
  * 页面关系图:可见页面为节点;连线由各页 schema 里的站内 href × 全站 slug
@@ -336,8 +334,12 @@ pagesRoutes.post("/:id/publish", async (c) => {
   }
 
   const input = parseBody(publishInput, await readJson(c));
-  if ((RESERVED_SLUGS as readonly string[]).includes(input.slug)) {
-    throw new HTTPException(409, { message: `路径 /${input.slug} 为系统保留,请换一个路径` });
+  // 仅一级路径受保留字限制(遮蔽 /dashboard 等平台路由);二级及以下可用任意段,如 /product/dashboard
+  const firstSegment = input.slug.split("/")[0];
+  if ((RESERVED_FIRST_SEGMENTS as readonly string[]).includes(firstSegment)) {
+    throw new HTTPException(409, {
+      message: `一级路径 /${firstSegment} 为系统保留,严禁占用;可作为已发布路由的子路径,如 /product/${firstSegment}`,
+    });
   }
   const clash = await db.page.findUnique({ where: { slug: input.slug } });
   if (clash && clash.id !== page.id) {

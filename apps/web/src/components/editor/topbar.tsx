@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -12,7 +12,10 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  FileText,
+  Folder,
   Globe,
+  ListTree,
   Monitor,
   Rocket,
   Redo2,
@@ -39,7 +42,8 @@ import {
   Label,
   Separator,
 } from "@lc/ui";
-import { ApiError, publishPage } from "@/lib/api";
+import { PUBLISH_SLUG_PATH_RE, RESERVED_FIRST_SEGMENTS } from "@lc/schema";
+import { ApiError, listPages, publishPage, type PageMeta } from "@/lib/api";
 import { saveNow } from "@/lib/editor-save";
 import { useEditorStore, type Device } from "@/lib/editor-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -82,6 +86,86 @@ const DEVICES: { key: Device; icon: typeof Monitor; label: string }[] = [
   { key: "mobile", icon: Smartphone, label: "手机" },
 ];
 
+/** 输入归一化:小写、非法字符转中划线;保留 / 作为多级分隔(尾部 / 是挂靠预填的"待补段"状态,发布时再去掉) */
+function normalizeSlugInput(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9/-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/\/{2,}/g, "/")
+    .replace(/^\/+/, "");
+}
+
+type RouteNode = {
+  segment: string;
+  /** 从一级到该节点的完整路径(不含首尾斜杠) */
+  path: string;
+  /** 命中的已发布页面名;分支节点(只是别人路径的前缀)没有 */
+  pageName?: string;
+  isCurrent: boolean;
+  children: RouteNode[];
+};
+
+/** 把已发布页面的多级 slug 拼成一棵路由树 */
+function buildRouteTree(pages: PageMeta[], currentId: string | null): RouteNode {
+  const root: RouteNode = { segment: "", path: "", isCurrent: false, children: [] };
+  for (const page of pages) {
+    let node = root;
+    let path = "";
+    for (const segment of (page.slug ?? "").split("/").filter(Boolean)) {
+      path = path ? `${path}/${segment}` : segment;
+      let child = node.children.find((c) => c.segment === segment);
+      if (!child) {
+        child = { segment, path, isCurrent: false, children: [] };
+        node.children.push(child);
+      }
+      node = child;
+    }
+    node.pageName = page.name;
+    node.isCurrent = page.id === currentId;
+  }
+  const sort = (node: RouteNode): void => {
+    node.children.sort((a, b) => a.segment.localeCompare(b.segment));
+    node.children.forEach(sort);
+  };
+  sort(root);
+  return root;
+}
+
+function RouteTreeRows({ node, depth, onPick }: { node: RouteNode; depth: number; onPick: (node: RouteNode) => void }) {
+  return (
+    <>
+      {node.children.map((child) => (
+        <div key={child.path}>
+          <button
+            type="button"
+            onClick={() => onPick(child)}
+            title={child.isCurrent ? "保留当前路径" : `挂靠到 /${child.path} 下`}
+            className="flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left hover:bg-muted"
+            style={{ paddingInlineStart: depth * 16 + 8 }}
+          >
+            {child.children.length > 0 ? (
+              <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <span className="shrink-0 font-mono text-xs">{child.segment}</span>
+            {child.pageName ? (
+              <span className="truncate text-xs text-muted-foreground">{child.pageName}</span>
+            ) : null}
+            {child.isCurrent ? (
+              <Badge variant="secondary" className="shrink-0 px-1 py-0 text-[10px]">
+                当前页面
+              </Badge>
+            ) : null}
+          </button>
+          <RouteTreeRows node={child} depth={depth + 1} onPick={onPick} />
+        </div>
+      ))}
+    </>
+  );
+}
+
 function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const pageId = useEditorStore((s) => s.pageId);
   const pageName = useEditorStore((s) => s.pageName);
@@ -89,17 +173,47 @@ function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [slug, setSlug] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<{ slug: string; url: string } | null>(null);
+  const [publishedPages, setPublishedPages] = useState<PageMeta[] | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // 默认预填页面已有路径(下线后重新发布、更改路径场景),没有才按页面名生成
   const effectiveSlug = slug ?? pageSlug ?? slugify(pageName);
+  // 发布用路径:去掉尾部 /(挂靠预填后的待输入状态)
+  const publishSlug = effectiveSlug.replace(/\/+$/, "");
 
   // 每次打开都回到干净的表单视图:避免上次"发布成功"结果或取消时输入的路径残留
   useEffect(() => {
     if (open) {
       setResult(null);
       setSlug(null);
+      setPublishedPages(null);
+      listPages()
+        .then((pages) => setPublishedPages(pages.filter((p) => p.status === "published" && p.slug)))
+        .catch(() => setPublishedPages([]));
     }
   }, [open]);
+
+  const firstSegment = publishSlug.split("/")[0];
+  const reservedFirst = (RESERVED_FIRST_SEGMENTS as readonly string[]).includes(firstSegment);
+  const pathValid = PUBLISH_SLUG_PATH_RE.test(publishSlug);
+  const canPublish = Boolean(publishSlug) && !reservedFirst && pathValid;
+
+  /** 预填输入框并把光标移到末尾,等待补最后一段 */
+  function prefill(value: string) {
+    setSlug(value);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+    });
+  }
+
+  function pickRoute(node: RouteNode) {
+    // 点"当前页面"自己 = 保留现有路径;点其他层级 = 挂到它下面,补输入最后一段
+    prefill(node.isCurrent ? node.path : `${node.path}/`);
+  }
 
   async function handlePublish() {
     if (!pageId) return;
@@ -107,7 +221,7 @@ function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     try {
       const ok = await saveNow();
       if (!ok) throw new Error("保存失败,请重试");
-      const res = await publishPage(pageId, effectiveSlug);
+      const res = await publishPage(pageId, publishSlug);
       useEditorStore.getState().markPublished(res.slug);
       setResult({ slug: res.slug, url: res.url });
       toast.success("发布成功!");
@@ -117,6 +231,8 @@ function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setPublishing(false);
     }
   }
+
+  const routeTree = publishedPages ? buildRouteTree(publishedPages, pageId) : null;
 
   return (
     <Dialog
@@ -175,20 +291,61 @@ function PublishDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 <span className="shrink-0 text-sm text-muted-foreground">/</span>
                 <Input
                   id="publish-slug"
+                  ref={inputRef}
                   value={effectiveSlug}
-                  onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
-                  placeholder="my-page"
+                  onChange={(e) => setSlug(normalizeSlugInput(e.target.value))}
+                  placeholder="my-page 或 product/preview"
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                仅支持小写字母、数字和中划线;slug 为 home 的页面将作为站点首页(/ 直接访问)
+                支持多级路径,以 / 分隔;一级路径 /dashboard、/api 为系统保留;slug 为 home
+                的页面将作为站点首页(/ 直接访问)
+              </p>
+              {reservedFirst ? (
+                <p className="text-xs text-destructive">
+                  一级路径 /{firstSegment} 为系统保留,严禁占用;可从下方路由树选择挂靠层级
+                </p>
+              ) : !pathValid ? (
+                <p className="text-xs text-destructive">
+                  路径格式不正确:每段仅允许小写字母、数字和中划线
+                </p>
+              ) : null}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <ListTree className="h-3.5 w-3.5" />
+                挂靠已发布路由
+              </Label>
+              <div className="max-h-44 overflow-y-auto rounded-md border bg-muted/30 p-1" data-testid="route-tree">
+                <button
+                  type="button"
+                  onClick={() => prefill("")}
+                  title="挂到站点根路径下(一级路由)"
+                  className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left hover:bg-muted"
+                >
+                  <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="font-mono text-xs">/</span>
+                  <span className="text-xs text-muted-foreground">站点根路径(作为一级路由)</span>
+                </button>
+                {routeTree === null ? (
+                  <p className="px-2 py-1.5 text-xs text-muted-foreground">加载已发布路由…</p>
+                ) : routeTree.children.length === 0 ? (
+                  <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                    暂无已发布路由,直接在上方输入一级路径
+                  </p>
+                ) : (
+                  <RouteTreeRows node={routeTree} depth={1} onPick={pickRoute} />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                点击某层级即挂靠到它下面,补输入最后一段即可,无需写完整路由
               </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 取消
               </Button>
-              <Button onClick={() => void handlePublish()} disabled={publishing || !effectiveSlug}>
+              <Button onClick={() => void handlePublish()} disabled={publishing || !canPublish}>
                 <Rocket />
                 {publishing ? "发布中…" : "立即发布"}
               </Button>
